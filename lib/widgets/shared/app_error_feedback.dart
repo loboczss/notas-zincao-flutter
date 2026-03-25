@@ -107,7 +107,7 @@ class AppErrorMessageMapper {
       return 'Há dados inválidos no formulário. Revise os campos e tente novamente.';
     }
 
-    if (message != null && message.trim().isNotEmpty && !message.contains('Exception(')) {
+    if (message != null && message.trim().isNotEmpty) {
       return message.trim();
     }
 

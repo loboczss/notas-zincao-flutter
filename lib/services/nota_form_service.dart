@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
@@ -18,6 +19,9 @@ class CupomAnaliseResult {
   final String? dataCompra;
   final List<Map<String, dynamic>> produtos;
   final double? valorTotal;
+  final double? valorTotalBruto;
+  final double? valorTotalLiquido;
+  final double? descontoTotal;
   final String? observacoes;
 
   const CupomAnaliseResult({
@@ -30,8 +34,24 @@ class CupomAnaliseResult {
     this.dataCompra,
     this.produtos = const [],
     this.valorTotal,
+    this.valorTotalBruto,
+    this.valorTotalLiquido,
+    this.descontoTotal,
     this.observacoes,
   });
+
+  double? get totalBrutoFoto => valorTotalBruto ?? valorTotal;
+
+  double? get totalLiquidoFoto {
+    if (valorTotalLiquido != null) return valorTotalLiquido;
+
+    final bruto = totalBrutoFoto;
+    if (bruto == null) return null;
+
+    final desconto = descontoTotal ?? 0;
+    final liquido = bruto - desconto;
+    return liquido < 0 ? 0 : liquido;
+  }
 
   factory CupomAnaliseResult.fromJson(Map<String, dynamic> json) {
     return CupomAnaliseResult(
@@ -48,6 +68,15 @@ class CupomAnaliseResult {
           [],
       valorTotal: json['valor_total'] != null
           ? (json['valor_total'] as num).toDouble()
+          : null,
+        valorTotalBruto: json['valor_total_bruto'] != null
+          ? (json['valor_total_bruto'] as num).toDouble()
+          : null,
+        valorTotalLiquido: json['valor_total_liquido'] != null
+          ? (json['valor_total_liquido'] as num).toDouble()
+          : null,
+      descontoTotal: json['desconto_total'] != null
+          ? (json['desconto_total'] as num).toDouble()
           : null,
       observacoes: json['observacoes'] as String?,
     );
@@ -168,8 +197,8 @@ class NotaFormService {
     final mimeType = ext == 'jpg' ? 'image/jpeg' : 'image/$ext';
 
     final body = jsonEncode({
-      'model': 'gpt-4.1-mini',
-      'max_tokens': 2000,
+      'model': 'gpt-5.4-mini',
+      'max_completion_tokens': 2000,
       'messages': [
         {
           'role': 'system',
@@ -187,9 +216,16 @@ Analise a imagem e extraia TODOS os dados possíveis no formato JSON abaixo (sem
     {"nome": "Nome do produto", "quantidade": 1, "tipo_unidade": "UN", "valor_unitario": 10.50, "valor_total": 10.50}
   ],
   "valor_total": 123.45,
+  "valor_total_bruto": 123.45,
+  "valor_total_liquido": 120.45,
+  "desconto_total": 0.00,
   "observacoes": "Qualquer observação relevante"
 }
-Se algum campo não estiver visível na imagem, use null.
+"valor_total_bruto" deve ser o total antes dos descontos.
+"valor_total_liquido" deve ser o total final pago, após os descontos.
+"valor_total" pode repetir o valor final pago para compatibilidade, mas priorize preencher corretamente "valor_total_bruto" e "valor_total_liquido".
+"desconto_total" deve ser o valor total de descontos aplicados na nota (se houver). Se não houver desconto, use 0.
+Se algum campo não estiver visível na imagem, use null (exceto desconto_total que deve ser 0).
 IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code blocks.'''
         },
         {
@@ -293,12 +329,21 @@ IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code b
     // Remove null values para usar defaults do banco
     data.removeWhere((key, value) => value == null);
 
-    final response = await supabase
-        .from('notas_retirada')
-        .insert(data)
-        .select()
-        .single();
+    debugPrint('📤 [createNota] Payload enviado ao Supabase: $data');
 
-    return NotaRetirada.fromMap(response);
+    try {
+      final response = await supabase
+          .from('notas_retirada')
+          .insert(data)
+          .select()
+          .single();
+
+      debugPrint('✅ [createNota] Nota salva com sucesso: ${response['id']}');
+      return NotaRetirada.fromMap(response);
+    } catch (e, st) {
+      debugPrint('❌ [createNota] Erro ao inserir no Supabase: $e');
+      debugPrint('❌ [createNota] StackTrace: $st');
+      rethrow;
+    }
   }
 }

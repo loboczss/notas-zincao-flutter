@@ -206,8 +206,12 @@ class NotaFormViewModel extends ChangeNotifier {
 
     try {
       final result = await _service.analyzeReceipt(_selectedImage!);
-      _valorTotalFotoAnalisada = result.valorTotal;
+      _valorTotalFotoAnalisada = result.totalLiquidoFoto;
       _divergenciaTotalFotoItens = null;
+
+      debugPrint(
+        '🧾 [analyzeReceipt] bruto=${result.totalBrutoFoto}, liquido=${result.totalLiquidoFoto}, desconto=${result.descontoTotal}, valor_total=${result.valorTotal}',
+      );
 
       // Preenche os campos com os dados da IA
       _fillField(nomeClienteCtrl, result.nomeCliente);
@@ -218,9 +222,11 @@ class NotaFormViewModel extends ChangeNotifier {
       _fillField(chaveNfeCtrl, result.chaveNfe);
       _fillField(dataCompraCtrl, result.dataCompra);
 
-      if (result.valorTotal != null) {
-        valorTotalCtrl.text = result.valorTotal!.toStringAsFixed(2);
+      if (result.totalBrutoFoto != null) {
+        valorTotalCtrl.text = result.totalBrutoFoto!.toStringAsFixed(2);
       }
+
+      descontoCtrl.text = (result.descontoTotal ?? 0).toStringAsFixed(2);
 
       if (result.observacoes != null) {
         observacoesCtrl.text = result.observacoes!;
@@ -234,21 +240,25 @@ class NotaFormViewModel extends ChangeNotifier {
 
       if (_produtos.isNotEmpty) {
         final totalItens = _calcularTotalProdutos(_produtos);
+        final totaisFoto = _resolverTotaisFoto(result, totalItens);
+        _valorTotalFotoAnalisada = totaisFoto.totalLiquido;
         valorTotalCtrl.text = totalItens.toStringAsFixed(2);
 
         if (_valorTotalFotoAnalisada != null) {
+          final desconto = result.descontoTotal ?? 0.0;
+          final totalLiquido = totalItens - desconto;
           _divergenciaTotalFotoItens =
-              (totalItens - _valorTotalFotoAnalisada!).abs();
+              (totalLiquido - _valorTotalFotoAnalisada!).abs();
           if (_divergenciaTotalFotoItens! > 0.01) {
             observacoesCtrl.text = _appendConferenciaAutomatica(
               observacoesCtrl.text,
               totalFoto: _valorTotalFotoAnalisada!,
-              totalItens: totalItens,
+              totalItens: totalLiquido,
             );
           }
         }
-      } else if (result.valorTotal != null) {
-        valorTotalCtrl.text = result.valorTotal!.toStringAsFixed(2);
+      } else if (result.totalBrutoFoto != null) {
+        valorTotalCtrl.text = result.totalBrutoFoto!.toStringAsFixed(2);
       }
 
       _aiProcessed = true;
@@ -409,6 +419,8 @@ class NotaFormViewModel extends ChangeNotifier {
         }
       }
 
+      debugPrint('📝 [saveNota] Iniciando save — numeroNota=${numeroNotaCtrl.text}, dataCompra=$dataCompra, valorTotal=$valorTotal, desconto=$descontoTotal, produtos=${_produtos.length}');
+
       await _service.createNota(
         ownerUserId: ownerUserId,
         nomeCliente: nomeClienteCtrl.text,
@@ -428,7 +440,9 @@ class NotaFormViewModel extends ChangeNotifier {
       );
 
       _setStatus(NotaFormStatus.success);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('❌ [saveNota] Erro ao salvar: $e');
+      debugPrint('❌ [saveNota] StackTrace: $st');
       _setError('Erro ao salvar nota: $e');
     }
   }
@@ -769,11 +783,14 @@ class NotaFormViewModel extends ChangeNotifier {
     }
 
     final totalItens = _calcularTotalProdutos(_produtos);
-    final divergencia = (totalItens - _valorTotalFotoAnalisada!).abs();
+    final desconto = descontoTotalInformado;
+    final totalLiquido = totalItens - desconto;
+    final divergencia = (totalLiquido - _valorTotalFotoAnalisada!).abs();
     _divergenciaTotalFotoItens = divergencia;
 
     if (divergencia > 0.01) {
-      return 'A soma dos itens (${totalItens.toStringAsFixed(2)}) está diferente do total da foto (${_valorTotalFotoAnalisada!.toStringAsFixed(2)}). Revise quantidade e preços dos produtos antes de salvar.';
+      final descontoInfo = desconto > 0 ? ' - desconto R\$ ${desconto.toStringAsFixed(2)} = R\$ ${totalLiquido.toStringAsFixed(2)}' : '';
+      return 'A soma dos itens (R\$ ${totalItens.toStringAsFixed(2)}$descontoInfo) está diferente do total da foto (R\$ ${_valorTotalFotoAnalisada!.toStringAsFixed(2)}). Revise quantidade e preços dos produtos antes de salvar.';
     }
 
     return null;
@@ -797,6 +814,46 @@ class NotaFormViewModel extends ChangeNotifier {
     return linhas.where((linha) => linha.trim().isNotEmpty).join('\n');
   }
 
+  ({double? totalBruto, double? totalLiquido}) _resolverTotaisFoto(
+    CupomAnaliseResult result,
+    double totalItens,
+  ) {
+    final desconto = result.descontoTotal ?? 0.0;
+
+    if (result.valorTotalBruto != null || result.valorTotalLiquido != null) {
+      return (
+        totalBruto: result.totalBrutoFoto,
+        totalLiquido: result.totalLiquidoFoto,
+      );
+    }
+
+    final valorReportado = result.valorTotal;
+    if (valorReportado == null) {
+      final liquido = totalItens - desconto;
+      return (
+        totalBruto: totalItens,
+        totalLiquido: liquido < 0 ? 0 : liquido,
+      );
+    }
+
+    final totalLiquidoItens = totalItens - desconto;
+    final diffBruto = (totalItens - valorReportado).abs();
+    final diffLiquido = (totalLiquidoItens - valorReportado).abs();
+
+    if (diffLiquido <= 0.01 || diffLiquido < diffBruto) {
+      return (
+        totalBruto: totalItens,
+        totalLiquido: valorReportado,
+      );
+    }
+
+    final liquido = valorReportado - desconto;
+    return (
+      totalBruto: valorReportado,
+      totalLiquido: liquido < 0 ? 0 : liquido,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> _filtrarProdutosDoCatalogo(List<Map<String, dynamic>> produtosDaIa) async {
     final itens = <Map<String, dynamic>>[];
 
@@ -812,20 +869,16 @@ class NotaFormViewModel extends ChangeNotifier {
         produtoCatalogo = await findProdutoCatalogoById(idProduto);
       }
 
-      produtoCatalogo ??= await findProdutoCatalogo(nome);
-
       if (produtoCatalogo == null) {
-        final numerosNoNome = RegExp(r'\d{4,}').allMatches(nome).map((m) => m.group(0)).whereType<String>();
-        for (final numero in numerosNoNome) {
-          final idNoTexto = int.tryParse(numero);
-          if (idNoTexto == null) continue;
-          final candidato = await findProdutoCatalogoById(idNoTexto);
-          if (candidato != null) {
-            produtoCatalogo = candidato;
+        for (final candidatoId in _extractCandidateProductIds(nome)) {
+          produtoCatalogo = await findProdutoCatalogoById(candidatoId);
+          if (produtoCatalogo != null) {
             break;
           }
         }
       }
+
+      produtoCatalogo ??= await findProdutoCatalogo(nome);
 
       if (produtoCatalogo == null || produtoCatalogo.idProduto == null) {
         continue;
@@ -848,6 +901,21 @@ class NotaFormViewModel extends ChangeNotifier {
     }
 
     return itens;
+  }
+
+  List<int> _extractCandidateProductIds(String nome) {
+    final ids = <int>[];
+    final matches = RegExp(r'\b(?:id|cod|codigo|produto)\s*[:#-]?\s*(\d{2,})\b', caseSensitive: false)
+        .allMatches(nome);
+
+    for (final match in matches) {
+      final id = int.tryParse(match.group(1) ?? '');
+      if (id != null && !ids.contains(id)) {
+        ids.add(id);
+      }
+    }
+
+    return ids;
   }
 
   @override

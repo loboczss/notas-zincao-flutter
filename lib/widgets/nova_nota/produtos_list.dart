@@ -250,9 +250,12 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
     if (_isEditing) {
       final idAtual = widget.produto!['id_produto_estoque'];
       ProdutoEstoque? produtoInicial;
+      final idProduto = idAtual is int
+          ? idAtual
+          : int.tryParse((idAtual ?? '').toString());
 
-      if (idAtual is int) {
-        produtoInicial = await widget.viewModel.findProdutoCatalogoById(idAtual);
+      if (idProduto != null) {
+        produtoInicial = await widget.viewModel.findProdutoCatalogoById(idProduto);
       }
 
       produtoInicial ??= await widget.viewModel.findProdutoCatalogo((widget.produto!['nome'] ?? '').toString());

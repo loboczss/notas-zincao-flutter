@@ -12,11 +12,15 @@ class EstoqueProdutoService {
   }
 
   Future<ProdutoEstoque?> fetchById(int idProduto) async {
-    final resultados = await fetchPagina(offset: 0, limite: 1, query: '$idProduto');
+    final resultados = await supabase
+        .from('bd_estoque_geral')
+        .select()
+        .eq('IDPRODUTO', idProduto)
+        .limit(1);
+
     if (resultados.isEmpty) return null;
-    return resultados.firstWhere(
-      (produto) => produto.idProduto == idProduto,
-      orElse: () => resultados.first,
+    return ProdutoEstoque.fromMap(
+      Map<String, dynamic>.from(resultados.first as Map),
     );
   }
 
@@ -32,36 +36,72 @@ class EstoqueProdutoService {
   }) async {
     final q = query.trim();
 
-    List raw;
-
     if (q.isEmpty) {
-      raw = await supabase
+      final raw = await supabase
           .from('bd_estoque_geral')
           .select()
           .order('DESCRICAO', ascending: true)
           .range(offset, offset + limite - 1);
-    } else {
-      final idQ = int.tryParse(q);
-      if (idQ != null) {
-        raw = await supabase
-            .from('bd_estoque_geral')
-            .select()
-            .eq('IDPRODUTO', idQ)
-            .order('DESCRICAO', ascending: true)
-            .range(offset, offset + limite - 1);
-      } else {
-        raw = await supabase
-            .from('bd_estoque_geral')
-            .select()
-            .or('DESCRICAO.ilike.%$q%,TIPOPRODUTO.ilike.%$q%')
-            .order('DESCRICAO', ascending: true)
-            .range(offset, offset + limite - 1);
+
+      return raw
+          .map((row) => ProdutoEstoque.fromMap(Map<String, dynamic>.from(row as Map)))
+          .toList();
+    }
+
+    final idQ = int.tryParse(q);
+    if (idQ != null) {
+      final raw = await supabase
+          .from('bd_estoque_geral')
+          .select()
+          .eq('IDPRODUTO', idQ)
+          .order('DESCRICAO', ascending: true)
+          .range(offset, offset + limite - 1);
+
+      return raw
+          .map((row) => ProdutoEstoque.fromMap(Map<String, dynamic>.from(row as Map)))
+          .toList();
+    }
+
+    final searchText = _sanitizeSearchText(q);
+    if (searchText.isEmpty) {
+      return const [];
+    }
+
+    final descricaoRaw = await supabase
+        .from('bd_estoque_geral')
+        .select()
+        .ilike('DESCRICAO', '%$searchText%')
+        .order('DESCRICAO', ascending: true)
+        .limit(limite);
+
+    final tipoProdutoRaw = await supabase
+        .from('bd_estoque_geral')
+        .select()
+        .ilike('TIPOPRODUTO', '%$searchText%')
+        .order('DESCRICAO', ascending: true)
+        .limit(limite);
+
+    final agregados = <ProdutoEstoque>[];
+    final ids = <int?>{};
+
+    for (final row in [...descricaoRaw, ...tipoProdutoRaw]) {
+      final produto = ProdutoEstoque.fromMap(Map<String, dynamic>.from(row as Map));
+      if (ids.add(produto.idProduto)) {
+        agregados.add(produto);
+      }
+      if (agregados.length >= limite) {
+        break;
       }
     }
 
-    return raw
-        .map((row) => ProdutoEstoque.fromMap(Map<String, dynamic>.from(row as Map)))
-        .toList();
+    return agregados;
+  }
+
+  String _sanitizeSearchText(String value) {
+    return value
+        .replaceAll(RegExp(r'[%(),]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   // ─── Carga completa (usada pelo catálogo do formulário de nota) ───────────

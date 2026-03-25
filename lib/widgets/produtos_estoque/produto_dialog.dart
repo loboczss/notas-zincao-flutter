@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
@@ -47,6 +48,16 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
   late final TextEditingController _precoCtrl;
   late String _embalagemSelecionada;
 
+  // Cached theme-derived values — computed once in didChangeDependencies
+  // to avoid repeated Theme.of / GoogleFonts lookups on every rebuild.
+  late bool _isDark;
+  late ColorScheme _cs;
+  late Color _fillColor;
+  late InputBorder _baseBorder;
+  late InputBorder _focusedBorder;
+  late TextStyle _fieldTextStyle;
+  late TextStyle _helperStyle;
+
   bool get _isEditing => widget.produto != null;
 
   @override
@@ -65,12 +76,35 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
           ? p!.valorPrecoVarejo!.toStringAsFixed(2)
           : '',
     );
-
     _embalagemSelecionada =
         (p?.embalagemSaida ?? widget.embalagens.first).trim().toUpperCase();
     if (!widget.embalagens.contains(_embalagemSelecionada)) {
       _embalagemSelecionada = widget.embalagens.first;
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isDark = Theme.of(context).brightness == Brightness.dark;
+    _cs = Theme.of(context).colorScheme;
+    _fillColor = _isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.04);
+    const _radius = BorderRadius.all(Radius.circular(12));
+    _baseBorder = const OutlineInputBorder(
+      borderRadius: _radius,
+      borderSide: BorderSide.none,
+    );
+    _focusedBorder = const OutlineInputBorder(
+      borderRadius: _radius,
+      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+    );
+    _fieldTextStyle = GoogleFonts.inter(color: _cs.onSurface, fontSize: 14);
+    _helperStyle = GoogleFonts.inter(
+      color: _cs.onSurface.withValues(alpha: 0.45),
+      fontSize: 11,
+    );
   }
 
   @override
@@ -84,11 +118,13 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
 
   ProdutoEstoque? _buildProduto() {
     if (_descricaoCtrl.text.trim().isEmpty) return null;
+    if (_precoCtrl.text.trim().isEmpty) return null;
+
     final quantidade =
         double.tryParse(_quantidadeCtrl.text.replaceAll(',', '.')) ?? 0;
-    final preco = _precoCtrl.text.trim().isEmpty
-        ? null
-        : double.tryParse(_precoCtrl.text.replaceAll(',', '.'));
+    final preco = double.tryParse(_precoCtrl.text.replaceAll(',', '.'));
+
+    if (preco == null) return null;
 
     return ProdutoEstoque(
       idProduto: widget.produto?.idProduto,
@@ -101,6 +137,22 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     );
   }
 
+  String? _validationError() {
+    if (_descricaoCtrl.text.trim().isEmpty && _precoCtrl.text.trim().isEmpty) {
+      return 'Descrição e preço são obrigatórios.';
+    }
+    if (_descricaoCtrl.text.trim().isEmpty) {
+      return 'A descrição do produto é obrigatória.';
+    }
+    if (_precoCtrl.text.trim().isEmpty) {
+      return 'O preço de venda é obrigatório.';
+    }
+    if (double.tryParse(_precoCtrl.text.replaceAll(',', '.')) == null) {
+      return 'Preço inválido. Use apenas números (ex: 44.00).';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -109,59 +161,117 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     return AlertDialog(
       backgroundColor: isDark ? const Color(0xFF1E1E24) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(
-        _isEditing ? 'Editar Produto' : 'Cadastrar Produto',
-        style:
-            GoogleFonts.inter(fontWeight: FontWeight.w700, color: cs.onSurface),
+      title: Row(
+        children: [
+          Icon(
+            _isEditing ? Icons.edit_outlined : Icons.add_box_outlined,
+            color: AppColors.primary,
+            size: 22,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _isEditing ? 'Editar Produto' : 'Cadastrar Produto',
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700, color: cs.onSurface),
+          ),
+        ],
       ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _field(_tipoCtrl, 'Tipo do produto (telha, cimento...)'),
-            const SizedBox(height: 10),
-            _field(_descricaoCtrl, 'Descrição do produto'),
-            const SizedBox(height: 10),
-            _embalagemDropdown(),
-            const SizedBox(height: 10),
+            // ── Tipo ──────────────────────────────────────────────────────
+            _field(
+              _tipoCtrl,
+              label: 'Tipo do produto',
+              helperText: 'Categoria geral: telha, cimento, ferro...',
+              prefixIcon: Icons.category_outlined,
+              inputType: TextInputType.text,
+            ),
+            const SizedBox(height: 14),
+
+            // ── Descrição (obrigatório) ────────────────────────────────
+            _field(
+              _descricaoCtrl,
+              label: 'Descrição *',
+              helperText: 'Nome completo do produto conforme cadastro',
+              prefixIcon: Icons.inventory_2_outlined,
+              inputType: TextInputType.text,
+              isRequired: true,
+            ),
+            const SizedBox(height: 14),
+
+            // ── Embalagem — widget próprio para isolar setState ────────
+            _EmbalagemDropdown(
+              embalagens: widget.embalagens,
+              initialValue: _embalagemSelecionada,
+              isDark: _isDark,
+              cs: _cs,
+              fillColor: _fillColor,
+              baseBorder: _baseBorder,
+              focusedBorder: _focusedBorder,
+              onChanged: (v) => _embalagemSelecionada = v,
+            ),
+            const SizedBox(height: 14),
+
+            // ── Quantidade (obrigatório) ───────────────────────────────
             _field(
               _quantidadeCtrl,
-              'Quantidade em estoque',
+              label: 'Quantidade em estoque *',
+              helperText: 'Quantidade atual disponível no estoque',
+              prefixIcon: Icons.numbers_outlined,
               inputType: const TextInputType.numberWithOptions(decimal: true),
+              isRequired: true,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
+
+            // ── Preço (obrigatório) ────────────────────────────────────
             _field(
               _precoCtrl,
-              'Preço varejo (opcional)',
+              label: 'Preço de venda (R\$) *',
+              helperText: 'Preço unitário de venda no varejo',
+              prefixIcon: Icons.attach_money_rounded,
               inputType: const TextInputType.numberWithOptions(decimal: true),
+              isRequired: true,
             ),
           ],
         ),
       ),
+      actionsPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       actions: [
         TextButton(
           onPressed: widget.isSaving ? null : () => Navigator.pop(context),
-          child: Text('Cancelar',
-            style: GoogleFonts.inter(color: cs.onSurface.withValues(alpha: 0.6))),
+          child: Text(
+            'Cancelar',
+            style: GoogleFonts.inter(
+                color: cs.onSurface.withValues(alpha: 0.6)),
+          ),
         ),
         ElevatedButton(
           onPressed: widget.isSaving
               ? null
               : () {
-                  final p = _buildProduto();
-                  if (p == null) {
+                  final erro = _validationError();
+                  if (erro != null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Descrição é obrigatória.'),
+                      SnackBar(
+                        content: Text(erro),
                         backgroundColor: AppColors.warning,
                       ),
                     );
                     return;
                   }
+                  final p = _buildProduto();
+                  if (p == null) return;
                   Navigator.pop(context, p);
                 },
           style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary),
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
           child: widget.isSaving
               ? const SizedBox(
                   width: 18,
@@ -180,64 +290,122 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
   }
 
   Widget _field(
-    TextEditingController ctrl,
-    String hint, {
+    TextEditingController ctrl, {
+    required String label,
+    String? helperText,
+    IconData? prefixIcon,
     TextInputType? inputType,
+    bool isRequired = false,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
+    final labelColor =
+        isRequired ? AppColors.primary : _cs.onSurface.withValues(alpha: 0.7);
+    final labelStyle = GoogleFonts.inter(color: labelColor, fontSize: 13);
 
     return TextField(
       controller: ctrl,
       keyboardType: inputType,
-      style: GoogleFonts.inter(color: cs.onSurface),
+      // TextCapitalization.sentences is lighter than .characters on Android
+      // (.characters forces every-char IME round-trip; .sentences does not)
+      textCapitalization: inputType == null || inputType == TextInputType.text
+          ? TextCapitalization.sentences
+          : TextCapitalization.none,
+      autocorrect: false,
+      enableSuggestions: false,
+      style: _fieldTextStyle,
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.inter(
-          color: cs.onSurface.withValues(alpha: 0.35),
-          fontSize: 13,
-        ),
+        labelText: label,
+        labelStyle: labelStyle,
+        floatingLabelStyle:
+            GoogleFonts.inter(color: AppColors.primary, fontSize: 13),
+        helperText: helperText,
+        helperStyle: _helperStyle,
+        prefixIcon: prefixIcon != null
+            ? Icon(prefixIcon,
+                size: 20, color: _cs.onSurface.withValues(alpha: 0.55))
+            : null,
         filled: true,
-        fillColor: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.04),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+        fillColor: _fillColor,
+        border: _baseBorder,
+        enabledBorder: _baseBorder,
+        focusedBorder: _focusedBorder,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       ),
     );
   }
+}
 
-  Widget _embalagemDropdown() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
+// ── Dropdown isolado ────────────────────────────────────────────────────────
+// Gerencia seu próprio estado para que a mudança de seleção não dispare
+// um rebuild de toda a árvore do dialog pai.
+class _EmbalagemDropdown extends StatefulWidget {
+  final List<String> embalagens;
+  final String initialValue;
+  final bool isDark;
+  final ColorScheme cs;
+  final Color fillColor;
+  final InputBorder baseBorder;
+  final InputBorder focusedBorder;
+  final ValueChanged<String> onChanged;
 
+  const _EmbalagemDropdown({
+    required this.embalagens,
+    required this.initialValue,
+    required this.isDark,
+    required this.cs,
+    required this.fillColor,
+    required this.baseBorder,
+    required this.focusedBorder,
+    required this.onChanged,
+  });
+
+  @override
+  State<_EmbalagemDropdown> createState() => _EmbalagemDropdownState();
+}
+
+class _EmbalagemDropdownState extends State<_EmbalagemDropdown> {
+  late String _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialValue;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      initialValue: _embalagemSelecionada,
-      dropdownColor: isDark ? const Color(0xFF1E1E24) : Colors.white,
-      iconEnabledColor: cs.onSurface.withValues(alpha: 0.7),
-      style: GoogleFonts.inter(color: cs.onSurface, fontSize: 14),
+      value: _value,
+      dropdownColor: widget.isDark ? const Color(0xFF1E1E24) : Colors.white,
+      iconEnabledColor: widget.cs.onSurface.withValues(alpha: 0.7),
+      style: GoogleFonts.inter(color: widget.cs.onSurface, fontSize: 14),
       decoration: InputDecoration(
-        hintText: 'Selecione a embalagem',
-        hintStyle: GoogleFonts.inter(
-          color: cs.onSurface.withValues(alpha: 0.35),
-          fontSize: 13,
+        labelText: 'Embalagem de saída *',
+        labelStyle: GoogleFonts.inter(color: AppColors.primary, fontSize: 13),
+        floatingLabelStyle:
+            GoogleFonts.inter(color: AppColors.primary, fontSize: 13),
+        helperText: 'Unidade usada ao registrar saída no estoque',
+        helperStyle: GoogleFonts.inter(
+          color: widget.cs.onSurface.withValues(alpha: 0.45),
+          fontSize: 11,
         ),
+        prefixIcon: Icon(Icons.straighten_outlined,
+            size: 20, color: widget.cs.onSurface.withValues(alpha: 0.55)),
         filled: true,
-        fillColor: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.04),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+        fillColor: widget.fillColor,
+        border: widget.baseBorder,
+        enabledBorder: widget.baseBorder,
+        focusedBorder: widget.focusedBorder,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       ),
       items: widget.embalagens
           .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
           .toList(),
       onChanged: (v) {
-        if (v != null) setState(() => _embalagemSelecionada = v);
+        if (v == null) return;
+        setState(() => _value = v);
+        widget.onChanged(v);
       },
     );
   }
