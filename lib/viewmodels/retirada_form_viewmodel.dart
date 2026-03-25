@@ -157,10 +157,13 @@ class RetiradaViewModel extends ChangeNotifier {
   void incrementarQuantidade(int index) {
     final atual = quantidadesSelecionadas[index] ?? 0.0;
     final max = getQuantidadeMaxima(index);
-    if (atual + 1 <= max) {
-      quantidadesSelecionadas[index] = atual + 1;
+    // Incrementa em 0.1 para permitir fracionados
+    const incremento = 0.1;
+    final novo = double.parse((atual + incremento).toStringAsFixed(2));
+    if (novo <= max) {
+      quantidadesSelecionadas[index] = novo;
       notifyListeners();
-    } else {
+    } else if (atual < max) {
       quantidadesSelecionadas[index] = max;
       notifyListeners();
     }
@@ -168,10 +171,13 @@ class RetiradaViewModel extends ChangeNotifier {
 
   void decrementarQuantidade(int index) {
     final atual = quantidadesSelecionadas[index] ?? 0.0;
-    if (atual - 1 >= 0) {
-      quantidadesSelecionadas[index] = atual - 1;
+    // Decrementa em 0.1 para permitir fracionados
+    const incremento = 0.1;
+    final novo = double.parse((atual - incremento).toStringAsFixed(2));
+    if (novo >= 0) {
+      quantidadesSelecionadas[index] = novo;
       notifyListeners();
-    } else {
+    } else if (atual > 0) {
       quantidadesSelecionadas[index] = 0;
       notifyListeners();
     }

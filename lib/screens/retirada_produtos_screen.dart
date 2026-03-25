@@ -293,9 +293,12 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
           else
             Row(
               children: [
-                IconButton(
-                  onPressed: maxRetiravel <= 0 ? null : () => _viewModel.decrementarQuantidade(index),
-                  icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Tooltip(
+                  message: 'Diminuir 0.1',
+                  child: IconButton(
+                    onPressed: maxRetiravel <= 0 ? null : () => _viewModel.decrementarQuantidade(index),
+                    icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
                 ),
                 SizedBox(
                   width: 60,
@@ -304,6 +307,8 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                     controller: _getController(index, qtdSelecionada),
                     enabled: maxRetiravel > 0,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    autocorrect: false,
+                    enableSuggestions: false,
                     textAlign: TextAlign.center,
                     onChanged: (val) => _viewModel.setQuantidade(index, val),
                     style: GoogleFonts.inter(fontSize: 16, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
@@ -315,12 +320,29 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
                         ),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.outlineVariant,
+                              width: 0.5,
+                            ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: AppColors.primary,
+                              width: 1.5,
+                            ),
+                        ),
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: maxRetiravel <= 0 ? null : () => _viewModel.incrementarQuantidade(index),
-                  icon: Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.onSurface),
+                Tooltip(
+                  message: 'Aumentar 0.1',
+                  child: IconButton(
+                    onPressed: maxRetiravel <= 0 ? null : () => _viewModel.incrementarQuantidade(index),
+                    icon: Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.onSurface),
+                  ),
                 ),
               ],
             ),
