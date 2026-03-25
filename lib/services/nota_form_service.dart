@@ -62,6 +62,48 @@ class CupomAnaliseResult {
 class NotaFormService {
   final ImagePicker _picker = ImagePicker();
 
+  Future<NotaRetirada?> findNotaDuplicada({
+    required String numeroNota,
+    String? chaveNfe,
+  }) async {
+    final numeroNormalizado = numeroNota.trim();
+    final chaveNormalizada = chaveNfe?.trim();
+
+    if (numeroNormalizado.isEmpty && (chaveNormalizada == null || chaveNormalizada.isEmpty)) {
+      return null;
+    }
+
+    if (numeroNormalizado.isNotEmpty) {
+      final existentePorNumero = await supabase
+          .from('notas_retirada')
+          .select()
+          .eq('numero_nota', numeroNormalizado)
+          .order('criado_em', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (existentePorNumero != null) {
+        return NotaRetirada.fromMap(existentePorNumero);
+      }
+    }
+
+    if (chaveNormalizada != null && chaveNormalizada.isNotEmpty) {
+      final existentePorChave = await supabase
+          .from('notas_retirada')
+          .select()
+          .eq('chave_nfe', chaveNormalizada)
+          .order('criado_em', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (existentePorChave != null) {
+        return NotaRetirada.fromMap(existentePorChave);
+      }
+    }
+
+    return null;
+  }
+
   // ─── Captura de Imagem ───────────────────────────────────────────
 
   /// Tira uma foto com a câmera.

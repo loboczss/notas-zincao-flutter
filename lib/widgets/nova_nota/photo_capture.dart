@@ -134,13 +134,18 @@ class PhotoCapture extends StatelessWidget {
   Widget _buildImagePreview(File image, bool isProcessing) {
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: Image.file(
-            image,
-            width: double.infinity,
-            height: 200,
-            fit: BoxFit.cover,
+        Builder(
+          builder: (context) => InkWell(
+            onTap: () => _showImagePreview(context, image),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: Image.file(
+                image,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
         ),
         if (isProcessing)
@@ -193,7 +198,64 @@ class PhotoCapture extends StatelessWidget {
               ),
             ),
           ),
+        Positioned(
+          left: 12,
+          bottom: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.zoom_in_rounded, size: 14, color: Colors.white),
+                const SizedBox(width: 4),
+                Text(
+                  'Toque para ampliar',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  void _showImagePreview(BuildContext context, File image) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      builder: (ctx) {
+        return Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 5,
+                  child: Image.file(image, fit: BoxFit.contain),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

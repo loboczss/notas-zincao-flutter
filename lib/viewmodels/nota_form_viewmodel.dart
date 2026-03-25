@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
 import 'package:notas_zincao_flutter/services/nota_form_service.dart';
@@ -23,6 +24,7 @@ enum NotaFormStatus {
   analyzingReceipt,
   saving,
   success,
+  duplicateFound,
   error,
   quotaExceeded,
 }
@@ -57,6 +59,12 @@ class NotaFormViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  NotaRetirada? _notaDuplicada;
+  NotaRetirada? get notaDuplicada => _notaDuplicada;
+
+  String? _duplicateReason;
+  String? get duplicateReason => _duplicateReason;
+
   File? _selectedImage;
   File? get selectedImage => _selectedImage;
 
@@ -69,6 +77,12 @@ class NotaFormViewModel extends ChangeNotifier {
 
   bool _aiProcessed = false;
   bool get aiProcessed => _aiProcessed;
+
+  double? _valorTotalFotoAnalisada;
+  double? get valorTotalFotoAnalisada => _valorTotalFotoAnalisada;
+
+  double? _divergenciaTotalFotoItens;
+  double? get divergenciaTotalFotoItens => _divergenciaTotalFotoItens;
 
   bool _quotaExceeded = false;
   bool get quotaExceeded => _quotaExceeded;
@@ -127,6 +141,10 @@ class NotaFormViewModel extends ChangeNotifier {
       final file = await _service.captureFromCamera();
       if (file != null) {
         _selectedImage = file;
+        _aiProcessed = false;
+        _uploadedImageUrl = null;
+        _valorTotalFotoAnalisada = null;
+        _divergenciaTotalFotoItens = null;
         _setStatus(NotaFormStatus.idle);
       } else {
         _setStatus(NotaFormStatus.idle);
@@ -143,6 +161,10 @@ class NotaFormViewModel extends ChangeNotifier {
       final file = await _service.pickFromGallery();
       if (file != null) {
         _selectedImage = file;
+        _aiProcessed = false;
+        _uploadedImageUrl = null;
+        _valorTotalFotoAnalisada = null;
+        _divergenciaTotalFotoItens = null;
         _setStatus(NotaFormStatus.idle);
       } else {
         _setStatus(NotaFormStatus.idle);
@@ -164,6 +186,8 @@ class NotaFormViewModel extends ChangeNotifier {
 
     try {
       final result = await _service.analyzeReceipt(_selectedImage!);
+      _valorTotalFotoAnalisada = result.valorTotal;
+      _divergenciaTotalFotoItens = null;
 
       // Preenche os campos com os dados da IA
       _fillField(nomeClienteCtrl, result.nomeCliente);
@@ -184,6 +208,27 @@ class NotaFormViewModel extends ChangeNotifier {
 
       if (result.produtos.isNotEmpty) {
         _produtos = await _filtrarProdutosDoCatalogo(result.produtos);
+      } else {
+        _produtos = [];
+      }
+
+      if (_produtos.isNotEmpty) {
+        final totalItens = _calcularTotalProdutos(_produtos);
+        valorTotalCtrl.text = totalItens.toStringAsFixed(2);
+
+        if (_valorTotalFotoAnalisada != null) {
+          _divergenciaTotalFotoItens =
+              (totalItens - _valorTotalFotoAnalisada!).abs();
+          if (_divergenciaTotalFotoItens! > 0.01) {
+            observacoesCtrl.text = _appendConferenciaAutomatica(
+              observacoesCtrl.text,
+              totalFoto: _valorTotalFotoAnalisada!,
+              totalItens: totalItens,
+            );
+          }
+        }
+      } else if (result.valorTotal != null) {
+        valorTotalCtrl.text = result.valorTotal!.toStringAsFixed(2);
       }
 
       _aiProcessed = true;
@@ -209,9 +254,55 @@ class NotaFormViewModel extends ChangeNotifier {
   Future<void> saveNota(String ownerUserId) async {
     _missingFields.clear();
     _checkMissingFields();
+    _notaDuplicada = null;
+    _duplicateReason = null;
 
     if (_missingFields.isNotEmpty) {
       _setError('Preencha os campos obrigatórios destacados em vermelho.');
+      return;
+    }
+
+    final erroProdutos = _validarProdutosAntesDeSalvar();
+    if (erroProdutos != null) {
+      _setError(erroProdutos);
+      return;
+    }
+
+    final erroConferencia = _validarConferenciaComTotalDaFoto();
+    if (erroConferencia != null) {
+      _setError(erroConferencia);
+      return;
+    }
+
+    final numeroDigitado = numeroNotaCtrl.text.trim();
+    final chaveDigitada = chaveNfeCtrl.text.trim();
+
+    try {
+      final duplicada = await _service.findNotaDuplicada(
+        numeroNota: numeroDigitado,
+        chaveNfe: chaveDigitada.isEmpty ? null : chaveDigitada,
+      );
+
+      if (duplicada != null) {
+        _notaDuplicada = duplicada;
+        final duplicouPorNumero = numeroDigitado.isNotEmpty &&
+            duplicada.numeroNota.trim() == numeroDigitado;
+        final duplicouPorChave = chaveDigitada.isNotEmpty &&
+            (duplicada.chaveNfe?.trim() == chaveDigitada);
+
+        _duplicateReason = duplicouPorNumero && duplicouPorChave
+            ? 'Já existe uma nota com este número e esta chave NFe.'
+            : duplicouPorNumero
+                ? 'Já existe uma nota com este número.'
+                : 'Já existe uma nota com esta chave NFe.';
+
+        _status = NotaFormStatus.duplicateFound;
+        _errorMessage = null;
+        _notifySafe();
+        return;
+      }
+    } catch (e) {
+      _setError('Erro ao verificar duplicidade da nota: $e');
       return;
     }
 
@@ -262,7 +353,11 @@ class NotaFormViewModel extends ChangeNotifier {
 
       // Parse do valor total
       double? valorTotal;
-      if (valorTotalCtrl.text.isNotEmpty) {
+      if (_produtos.isNotEmpty) {
+        final totalCalculado = _calcularTotalProdutos(_produtos);
+        valorTotalCtrl.text = totalCalculado.toStringAsFixed(2);
+        valorTotal = totalCalculado;
+      } else if (valorTotalCtrl.text.isNotEmpty) {
         valorTotal = double.tryParse(
           valorTotalCtrl.text.replaceAll(',', '.').replaceAll('R\$', '').trim()
         );
@@ -316,8 +411,12 @@ class NotaFormViewModel extends ChangeNotifier {
     _selectedImage = null;
     _uploadedImageUrl = null;
     _aiProcessed = false;
+    _valorTotalFotoAnalisada = null;
+    _divergenciaTotalFotoItens = null;
     _missingFields.clear();
     _produtos = [];
+    _notaDuplicada = null;
+    _duplicateReason = null;
 
     nomeClienteCtrl.clear();
     documentoClienteCtrl.clear();
@@ -332,6 +431,16 @@ class NotaFormViewModel extends ChangeNotifier {
     contatoIdCtrl.clear();
 
     _setStatus(NotaFormStatus.idle);
+  }
+
+  void clearDuplicateFound() {
+    _notaDuplicada = null;
+    _duplicateReason = null;
+    if (_status == NotaFormStatus.duplicateFound) {
+      _setStatus(NotaFormStatus.idle);
+      return;
+    }
+    _notifySafe();
   }
 
   /// Adiciona um produto manualmente.
@@ -480,6 +589,84 @@ class NotaFormViewModel extends ChangeNotifier {
         .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().replaceAll(',', '.').trim()) ?? 0;
+  }
+
+  double _calcularTotalProdutos(List<Map<String, dynamic>> itens) {
+    var total = 0.0;
+    for (final item in itens) {
+      final quantidade = _toDouble(item['quantidade']);
+      final valorUnitario = _toDouble(item['valor_unitario']);
+      final valorTotalItem = quantidade * valorUnitario;
+      total += valorTotalItem;
+    }
+    return double.parse(total.toStringAsFixed(2));
+  }
+
+  String? _validarProdutosAntesDeSalvar() {
+    if (_produtos.isEmpty) {
+      return 'Adicione pelo menos 1 produto antes de salvar a nota.';
+    }
+
+    for (var i = 0; i < _produtos.length; i++) {
+      final produto = _produtos[i];
+      final quantidade = _toDouble(produto['quantidade']);
+      final valorUnitario = _toDouble(produto['valor_unitario']);
+
+      if (quantidade <= 0) {
+        return 'A quantidade do produto ${i + 1} é inválida. Ajuste para um valor maior que zero.';
+      }
+
+      if (valorUnitario < 0) {
+        return 'O valor unitário do produto ${i + 1} é inválido.';
+      }
+
+      final totalCalculado = double.parse((quantidade * valorUnitario).toStringAsFixed(2));
+      produto['quantidade'] = quantidade;
+      produto['valor_unitario'] = valorUnitario;
+      produto['valor_total'] = totalCalculado;
+    }
+
+    return null;
+  }
+
+  String? _validarConferenciaComTotalDaFoto() {
+    if (_valorTotalFotoAnalisada == null || _produtos.isEmpty) {
+      return null;
+    }
+
+    final totalItens = _calcularTotalProdutos(_produtos);
+    final divergencia = (totalItens - _valorTotalFotoAnalisada!).abs();
+    _divergenciaTotalFotoItens = divergencia;
+
+    if (divergencia > 0.01) {
+      return 'A soma dos itens (${totalItens.toStringAsFixed(2)}) está diferente do total da foto (${_valorTotalFotoAnalisada!.toStringAsFixed(2)}). Revise quantidade e preços dos produtos antes de salvar.';
+    }
+
+    return null;
+  }
+
+  String _appendConferenciaAutomatica(
+    String textoAtual, {
+    required double totalFoto,
+    required double totalItens,
+  }) {
+    const marcador = '[Conferência automática IA]';
+    final linhas = textoAtual
+        .split('\n')
+        .where((linha) => !linha.trim().startsWith(marcador))
+        .toList();
+
+    linhas.add(
+      '$marcador Total da foto: ${totalFoto.toStringAsFixed(2)} | Soma dos itens: ${totalItens.toStringAsFixed(2)}',
+    );
+
+    return linhas.where((linha) => linha.trim().isNotEmpty).join('\n');
   }
 
   Future<List<Map<String, dynamic>>> _filtrarProdutosDoCatalogo(List<Map<String, dynamic>> produtosDaIa) async {

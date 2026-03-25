@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
+import 'package:notas_zincao_flutter/widgets/minhas_notas/nota_details_sheet.dart';
 import 'package:notas_zincao_flutter/widgets/nova_nota/nota_form_fields.dart';
 import 'package:notas_zincao_flutter/widgets/nova_nota/photo_capture.dart';
 import 'package:notas_zincao_flutter/widgets/nova_nota/produtos_list.dart';
@@ -22,6 +23,7 @@ class NotaRegisterScreen extends StatefulWidget {
 
 class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
   final NotaFormViewModel _viewModel = NotaFormViewModel();
+  bool _isDuplicateDialogOpen = false;
 
   @override
   void initState() {
@@ -46,10 +48,91 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
       QuotaErrorDialog.show(context).then((_) => _viewModel.clearQuotaError());
     }
 
+    if (_viewModel.status == NotaFormStatus.duplicateFound &&
+        _viewModel.notaDuplicada != null &&
+        !_isDuplicateDialogOpen) {
+      _showDuplicateNotaDialog();
+    }
+
     // Exibe sucesso
     if (_viewModel.status == NotaFormStatus.success) {
       _showSuccessDialog();
     }
+  }
+
+  void _showDuplicateNotaDialog() {
+    final nota = _viewModel.notaDuplicada;
+    if (nota == null) return;
+
+    _isDuplicateDialogOpen = true;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+              const SizedBox(width: 8),
+              Text(
+                'Nota já cadastrada',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _viewModel.duplicateReason ??
+                    'Já existe uma nota com o mesmo número ou a mesma chave NFe.',
+                style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Cliente: ${nota.nomeCliente}',
+                style: GoogleFonts.inter(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Número: ${nota.numeroNota} | Série: ${nota.serieNota}',
+                style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fechar'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  showNotaDetails(context, nota, widget.authViewModel);
+                });
+              },
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Ver nota'),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      _isDuplicateDialogOpen = false;
+      if (mounted) {
+        _viewModel.clearDuplicateFound();
+      }
+    });
   }
 
   @override
