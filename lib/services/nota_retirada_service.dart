@@ -1,0 +1,84 @@
+import 'package:notas_zincao_flutter/models/nota_retirada.dart';
+import 'package:notas_zincao_flutter/models/profile.dart';
+import 'package:notas_zincao_flutter/supabase_config.dart';
+
+class NotaRetiradaService {
+  /// Busca todas as notas de retirada do Supabase de acordo com o nível de acesso.
+  Future<List<NotaRetirada>> fetchAll(Profile? profile) async {
+    try {
+      if (profile == null) return [];
+
+      var query = supabase.from('notas_retirada').select();
+
+      // Se não for admin e não for colaborador, visualiza apenas as notas criadas por ele
+      if (profile.role != 'admin' && profile.role != 'colaborador') {
+        query = query.eq('owner_user_id', profile.authUid);
+      }
+
+      final response = await query.order('data_compra', ascending: false);
+      
+      return (response as List)
+          .map((data) => NotaRetirada.fromMap(data as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Busca uma nota específica pelo ID.
+  Future<NotaRetirada?> getById(String id) async {
+    try {
+      final response = await supabase
+          .from('notas_retirada')
+          .select()
+          .eq('id', id)
+          .single();
+      
+      return NotaRetirada.fromMap(response);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Inserta uma nova nota.
+  Future<void> create(NotaRetirada nota) async {
+    try {
+      await supabase.from('notas_retirada').insert(nota.toMap());
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Atualiza uma nota existente.
+  Future<void> update(NotaRetirada nota) async {
+    try {
+      await supabase
+          .from('notas_retirada')
+          .update(nota.toMap())
+          .eq('id', nota.id);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Exclui uma nota.
+  Future<void> delete(String id) async {
+    try {
+      await supabase.from('notas_retirada').delete().eq('id', id);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Cancela uma nota.
+  Future<void> cancel(String id) async {
+    try {
+      await supabase
+          .from('notas_retirada')
+          .update({'status_retirada': 'cancelada'})
+          .eq('id', id);
+    } catch (e) {
+      rethrow;
+    }
+  }
+}

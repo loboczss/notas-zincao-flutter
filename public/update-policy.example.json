@@ -1,0 +1,9 @@
+{
+  "latestVersion": "1.0.3",
+  "minSupportedVersion": "1.0.1",
+  "forceUpdate": false,
+  "storeUrlAndroid": "https://play.google.com/store/apps/details?id=cloud.loboczss.notaszincao",
+  "storeUrlIos": "https://apps.apple.com/app/idSEU_APP_ID",
+  "rolloutPercent": 100,
+  "message": "Nova versão disponível com melhorias e correções importantes."
+}
