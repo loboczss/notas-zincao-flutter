@@ -7,6 +7,7 @@ import 'package:notas_zincao_flutter/viewmodels/produtos_estoque_viewmodel.dart'
 import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_card.dart';
 import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_dialog.dart';
 import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_search_bar.dart';
+import 'package:notas_zincao_flutter/widgets/shared/app_error_feedback.dart';
 
 class ProdutosEstoqueScreen extends StatefulWidget {
   const ProdutosEstoqueScreen({super.key});
@@ -92,11 +93,10 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao salvar produto: $e'),
-          backgroundColor: AppColors.error,
-        ),
+      AppErrorFeedback.show(
+        context,
+        error: e,
+        fallbackMessage: 'Não foi possível salvar o produto.',
       );
     }
   }

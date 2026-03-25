@@ -14,6 +14,7 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.lightSurface,
+        onSurface: AppColors.lightOnSurface,
       ),
     );
 
@@ -25,6 +26,24 @@ class AppTheme {
         elevation: 0,
       ),
       cardColor: AppColors.lightSurface,
+      dividerColor: base.colorScheme.outlineVariant,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: base.colorScheme.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: base.colorScheme.outlineVariant),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: base.colorScheme.primary),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: base.colorScheme.primary,
+          foregroundColor: base.colorScheme.onPrimary,
+        ),
+      ),
     );
   }
 
@@ -39,6 +58,7 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.darkSurface,
+        onSurface: AppColors.darkOnSurface,
       ),
     );
 
@@ -50,6 +70,24 @@ class AppTheme {
         elevation: 0,
       ),
       cardColor: AppColors.darkSurface,
+      dividerColor: base.colorScheme.outlineVariant,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: base.colorScheme.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: base.colorScheme.outlineVariant),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: base.colorScheme.primary),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: base.colorScheme.primary,
+          foregroundColor: base.colorScheme.onPrimary,
+        ),
+      ),
     );
   }
 }

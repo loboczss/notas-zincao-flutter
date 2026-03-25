@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/services/nota_retirada_service.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
+import 'package:notas_zincao_flutter/widgets/shared/app_error_feedback.dart';
 
 class NotaEditScreen extends StatefulWidget {
   final NotaRetirada nota;
@@ -65,7 +66,11 @@ class _NotaEditScreenState extends State<NotaEditScreen> {
       }
     } catch (e) {
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
+         AppErrorFeedback.show(
+           context,
+           error: e,
+           fallbackMessage: 'Não foi possível salvar as alterações da nota.',
+         );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

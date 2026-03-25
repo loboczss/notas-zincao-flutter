@@ -6,6 +6,7 @@ import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
 import 'package:notas_zincao_flutter/widgets/nova_nota/nota_form_fields.dart';
 import 'package:notas_zincao_flutter/widgets/nova_nota/photo_capture.dart';
 import 'package:notas_zincao_flutter/widgets/nova_nota/produtos_list.dart';
+import 'package:notas_zincao_flutter/widgets/shared/app_error_feedback.dart';
 import 'package:notas_zincao_flutter/widgets/shared/quota_error_dialog.dart';
 
 /// Tela principal para cadastro de notas de retirada.
@@ -33,16 +34,10 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
 
     // Exibe erros via SnackBar
     if (_viewModel.status == NotaFormStatus.error && _viewModel.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _viewModel.errorMessage!,
-            style: GoogleFonts.inter(fontWeight: FontWeight.w500),
-          ),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      AppErrorFeedback.show(
+        context,
+        message: _viewModel.errorMessage,
+        fallbackMessage: 'Não foi possível salvar a nota.',
       );
     }
 
@@ -166,16 +161,10 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
   void _handleSave() {
     final userId = widget.authViewModel.profile?.authUid;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Usuário não autenticado',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w500),
-          ),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      AppErrorFeedback.show(
+        context,
+        message: 'Usuário não autenticado',
+        fallbackMessage: 'Sua sessão expirou. Faça login novamente.',
       );
       return;
     }

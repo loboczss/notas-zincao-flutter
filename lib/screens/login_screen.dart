@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/screens/forgot_password_screen.dart';
+import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/theme/theme_controller.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 
@@ -80,8 +81,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F12),
+      backgroundColor: cs.surface,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SafeArea(
@@ -99,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Theme.of(context).brightness == Brightness.dark
                             ? Icons.light_mode_rounded
                             : Icons.dark_mode_rounded,
-                        color: Colors.white70,
+                        color: cs.onSurface,
                       ),
                     ),
                   ),
@@ -116,6 +118,8 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildLogo() {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Container(
@@ -123,12 +127,12 @@ class _LoginScreenState extends State<LoginScreen>
           height: 90,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: cs.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                color: AppColors.primary.withValues(alpha: isDark ? 0.22 : 0.15),
                 blurRadius: 32,
                 spreadRadius: 2,
               ),
@@ -142,24 +146,25 @@ class _LoginScreenState extends State<LoginScreen>
           style: GoogleFonts.inter(
             fontSize: 28,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: cs.onSurface,
           ),
         ),
         const SizedBox(height: 6),
         Text(
           'Gestão de notas de retirada',
-          style: GoogleFonts.inter(fontSize: 14, color: Colors.white38),
+          style: GoogleFonts.inter(fontSize: 14, color: cs.onSurfaceVariant),
         ),
       ],
     );
   }
 
   Widget _buildTabCard() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
         children: [
@@ -167,25 +172,25 @@ class _LoginScreenState extends State<LoginScreen>
           Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: cs.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(20),
             ),
             child: TabBar(
               controller: _tabController,
               indicator: BoxDecoration(
-                color: const Color(0xFF6366F1),
+                color: cs.primary,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.4),
+                    color: cs.primary.withValues(alpha: 0.35),
                     blurRadius: 12,
                   ),
                 ],
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white38,
+              labelColor: cs.onPrimary,
+              unselectedLabelColor: cs.onSurfaceVariant,
               labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
               unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14),
               tabs: const [
@@ -289,7 +294,7 @@ class _LoginFormState extends State<_LoginForm> {
                       _obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: Colors.white38,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
                     onPressed: () =>
@@ -312,7 +317,7 @@ class _LoginFormState extends State<_LoginForm> {
                             );
                           },
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF818CF8),
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       padding: EdgeInsets.zero,
                     ),
                     child: const Text('Esqueci minha senha', style: TextStyle(fontSize: 13)),
@@ -424,7 +429,7 @@ class _SignUpFormState extends State<_SignUpForm> {
                         _obscurePassword
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
-                        color: Colors.white38,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 20,
                       ),
                       onPressed: () =>
@@ -449,7 +454,7 @@ class _SignUpFormState extends State<_SignUpForm> {
                         _obscureConfirm
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
-                        color: Colors.white38,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 20,
                       ),
                       onPressed: () =>
@@ -514,6 +519,7 @@ class _AuthTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return TextFormField(
       key: Key(id),
       controller: controller,
@@ -521,36 +527,36 @@ class _AuthTextField extends StatelessWidget {
       obscureText: obscureText,
       enabled: enabled,
       validator: validator,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      style: TextStyle(color: cs.onSurface, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-        prefixIcon: Icon(icon, color: Colors.white24, size: 20),
+        labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+        prefixIcon: Icon(icon, color: cs.onSurfaceVariant, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.04),
+        fillColor: cs.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: BorderSide(color: cs.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: BorderSide(color: cs.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF6366F1)),
+          borderSide: BorderSide(color: cs.primary),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
-        errorStyle: const TextStyle(color: Color(0xFFEF4444), fontSize: 11),
+        errorStyle: const TextStyle(color: AppColors.error, fontSize: 11),
       ),
     );
   }
@@ -571,15 +577,16 @@ class _SubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       height: 50,
       child: ElevatedButton(
         key: Key(id),
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1),
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.35),
+          backgroundColor: cs.primary,
+          foregroundColor: cs.onPrimary,
+          disabledBackgroundColor: cs.primary.withValues(alpha: 0.35),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 0,
         ),

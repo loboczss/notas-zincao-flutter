@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/services/nota_retirada_service.dart';
-import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 
 import 'package:notas_zincao_flutter/widgets/minhas_notas/notas_action_row.dart';
@@ -9,6 +8,7 @@ import 'package:notas_zincao_flutter/widgets/minhas_notas/notas_filters.dart';
 import 'package:notas_zincao_flutter/widgets/minhas_notas/notas_empty_state.dart';
 import 'package:notas_zincao_flutter/widgets/minhas_notas/notas_list_views.dart';
 import 'package:notas_zincao_flutter/widgets/minhas_notas/nota_details_sheet.dart';
+import 'package:notas_zincao_flutter/widgets/shared/app_error_feedback.dart';
 
 class NotasRetiradaScreen extends StatefulWidget {
   final AuthViewModel authViewModel;
@@ -43,11 +43,10 @@ class _NotasRetiradaScreenState extends State<NotasRetiradaScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar notas: $e'),
-            backgroundColor: AppColors.error,
-          ),
+        AppErrorFeedback.show(
+          context,
+          error: e,
+          fallbackMessage: 'Não foi possível carregar suas notas.',
         );
       }
       setState(() => _isLoading = false);

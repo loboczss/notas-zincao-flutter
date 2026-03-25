@@ -5,6 +5,7 @@ import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 import 'package:notas_zincao_flutter/viewmodels/retirada_form_viewmodel.dart';
 import 'package:notas_zincao_flutter/widgets/minhas_notas/multiple_photo_capture.dart';
+import 'package:notas_zincao_flutter/widgets/shared/app_error_feedback.dart';
 
 class RetiradaProdutosScreen extends StatefulWidget {
   final NotaRetirada nota;
@@ -59,11 +60,10 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
     });
 
     if (_viewModel.status == RetiradaStatus.error && _viewModel.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_viewModel.errorMessage!),
-          backgroundColor: AppColors.error,
-        ),
+      AppErrorFeedback.show(
+        context,
+        message: _viewModel.errorMessage,
+        fallbackMessage: 'Não foi possível registrar a retirada.',
       );
     } else if (_viewModel.status == RetiradaStatus.success) {
       _showSuccessDialog();
@@ -183,24 +183,20 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
           width: double.infinity,
           height: 56,
           child: FloatingActionButton.extended(
-            backgroundColor: _viewModel.isValidoParaConfirmar ? AppColors.primary : colorScheme.surfaceContainerHighest,
-            onPressed: () {
-              if (_viewModel.isValidoParaConfirmar) {
-                _viewModel.confirmarRetirada(widget.authViewModel.profile!.id);
-              } else {
-                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Selecione pelo menos 1 produto e adicione 1 foto.'),
-                    backgroundColor: AppColors.warning,
-                  ),
-                );
-              }
-            },
+            backgroundColor: _viewModel.isValidoParaConfirmar
+                ? AppColors.primary
+                : colorScheme.surfaceContainerHighest,
+            foregroundColor: _viewModel.isValidoParaConfirmar
+                ? colorScheme.onPrimary
+                : colorScheme.onSurfaceVariant,
+            onPressed: isLoading
+                ? null
+                : () => _viewModel.confirmarRetirada(widget.authViewModel.profile!.id),
             label: Text(
               'Confirmar Retirada',
-              style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: colorScheme.onPrimary),
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
             ),
-            icon: Icon(Icons.check, color: colorScheme.onPrimary),
+            icon: const Icon(Icons.check),
           ),
         ),
       ),
@@ -226,7 +222,8 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
 
     final double qtdJaRetirada = double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
     final maxRetiravel = _viewModel.getQuantidadeMaxima(index);
-    final isCompletamenteRetirado = maxRetiravel <= 0.001;
+    final isCompletamenteRetirado = _viewModel.isProdutoEntregue(index);
+    final isSemEstoque = _viewModel.isSemEstoqueDisponivel(index);
     final estoqueDisponivel = _viewModel.estoqueDisponivelPorIndex[index];
     
     final qtdSelecionada = _viewModel.quantidadesSelecionadas[index] ?? 0.0;
@@ -237,9 +234,15 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
       decoration: BoxDecoration(
         color: isCompletamenteRetirado 
             ? AppColors.success.withValues(alpha: 0.1) 
+            : isSemEstoque
+                ? AppColors.warning.withValues(alpha: 0.10)
             : Theme.of(context).colorScheme.surfaceContainerHighest,
         border: Border.all(
-          color: isCompletamenteRetirado ? AppColors.success.withValues(alpha: 0.3) : Colors.transparent
+          color: isCompletamenteRetirado
+              ? AppColors.success.withValues(alpha: 0.3)
+              : isSemEstoque
+                  ? AppColors.warning.withValues(alpha: 0.35)
+                  : Colors.transparent
         ),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -255,8 +258,12 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                     style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 if (estoqueDisponivel != null)
                   Text(
-                    'Estoque disponível agora: ${estoqueDisponivel.toString().replaceAll('.0', '')} $tipoUnidade',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.success),
+                    'Estoque disponível: ${estoqueDisponivel.toString().replaceAll('.0', '')} $tipoUnidade',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: estoqueDisponivel <= 0.001 ? AppColors.warning : AppColors.success,
+                      fontWeight: estoqueDisponivel <= 0.001 ? FontWeight.w600 : FontWeight.w500,
+                    ),
                   ),
               ],
             ),
@@ -267,11 +274,27 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                const SizedBox(width: 8),
                Text('Entregue', style: GoogleFonts.inter(color: AppColors.success, fontWeight: FontWeight.bold))
             ]
+          else if (isSemEstoque)
+            ...[
+              const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 108,
+                child: Text(
+                  'Sem item no estoque',
+                  style: GoogleFonts.inter(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ]
           else
             Row(
               children: [
                 IconButton(
-                  onPressed: () => _viewModel.decrementarQuantidade(index),
+                  onPressed: maxRetiravel <= 0 ? null : () => _viewModel.decrementarQuantidade(index),
                   icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 SizedBox(
@@ -279,6 +302,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                   height: 40,
                   child: TextFormField(
                     controller: _getController(index, qtdSelecionada),
+                    enabled: maxRetiravel > 0,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     textAlign: TextAlign.center,
                     onChanged: (val) => _viewModel.setQuantidade(index, val),
@@ -295,7 +319,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => _viewModel.incrementarQuantidade(index),
+                  onPressed: maxRetiravel <= 0 ? null : () => _viewModel.incrementarQuantidade(index),
                   icon: Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.onSurface),
                 ),
               ],

@@ -72,7 +72,6 @@ class _NotaTextFieldState extends State<NotaTextField>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
 
     return AnimatedBuilder(
@@ -84,21 +83,15 @@ class _NotaTextFieldState extends State<NotaTextField>
                 AppColors.error,
                 _blinkAnimation.value,
               )!
-            : (isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.08));
+          : cs.outlineVariant;
 
         final bgColor = widget.isMissing
             ? Color.lerp(
-                isDark
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : Colors.black.withValues(alpha: 0.03),
+            cs.surfaceContainerHighest,
                 AppColors.error.withValues(alpha: 0.08),
                 _blinkAnimation.value * 0.3,
               )!
-            : (isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.black.withValues(alpha: 0.03));
+          : cs.surfaceContainerHighest;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,7 +105,7 @@ class _NotaTextFieldState extends State<NotaTextField>
                     fontWeight: FontWeight.w600,
                     color: widget.isMissing
                         ? AppColors.error
-                        : cs.onSurface.withValues(alpha: 0.6),
+                          : cs.onSurfaceVariant,
                   ),
                 ),
                 if (widget.isMissing) ...[
@@ -135,34 +128,64 @@ class _NotaTextFieldState extends State<NotaTextField>
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: borderColor, width: widget.isMissing ? 1.5 : 1),
               ),
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                keyboardType: widget.keyboardType,
-                maxLines: widget.maxLines,
-                readOnly: widget.readOnly,
-                onTap: widget.onTap,
-                style: GoogleFonts.inter(
-                  color: cs.onSurface,
-                  fontSize: 14,
-                ),
-                decoration: InputDecoration(
-                  hintText: widget.hint,
-                  hintStyle: GoogleFonts.inter(
-                    color: cs.onSurface.withValues(alpha: 0.35),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: widget.focusNode,
+                  keyboardType: widget.keyboardType,
+                  maxLines: widget.maxLines,
+                  readOnly: widget.readOnly,
+                  onTap: widget.onTap,
+                  style: GoogleFonts.inter(
+                    color: cs.onSurface,
                     fontSize: 14,
                   ),
-                  prefixIcon: widget.icon != null
-                      ? Icon(
-                          widget.icon,
-                          size: 20,
-                          color: cs.onSurface.withValues(alpha: 0.45),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.transparent,
+                    hintText: widget.hint,
+                    hintStyle: GoogleFonts.inter(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+                      fontSize: 14,
+                    ),
+                    prefixIcon: widget.icon != null
+                        ? Icon(
+                            widget.icon,
+                            size: 20,
+                            color: cs.onSurfaceVariant,
+                          )
+                        : null,
+                    prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                    disabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                    errorBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                    focusedErrorBorder: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 13,
+                    ),
                   ),
                 ),
               ),
@@ -183,6 +206,7 @@ class NotaFormFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final missing = viewModel.missingFields;
+    final cs = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +252,7 @@ class NotaFormFields extends StatelessWidget {
               alignment: Alignment.topLeft,
               child: Material(
                 elevation: 8.0,
-                color: const Color(0xFF1E1E24),
+                color: cs.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
@@ -236,13 +260,13 @@ class NotaFormFields extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     shrinkWrap: true,
                     itemCount: options.length,
-                    separatorBuilder: (_, _) => const Divider(color: Colors.white10, height: 1),
+                    separatorBuilder: (_, _) => Divider(color: cs.outlineVariant, height: 1),
                     itemBuilder: (context, index) {
                       final option = options.elementAt(index);
                       return ListTile(
-                        leading: const Icon(Icons.person, color: Color(0xFF6366F1)),
-                        title: Text(option['nome'] ?? 'Sem Nome', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w500)),
-                        subtitle: Text(option['contato_id'] ?? '', style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+                        leading: const Icon(Icons.person, color: AppColors.primary),
+                        title: Text(option['nome'] ?? 'Sem Nome', style: GoogleFonts.inter(color: cs.onSurface, fontWeight: FontWeight.w500)),
+                        subtitle: Text(option['contato_id'] ?? '', style: GoogleFonts.inter(color: cs.onSurfaceVariant, fontSize: 13)),
                         onTap: () => onSelected(option),
                       );
                     },

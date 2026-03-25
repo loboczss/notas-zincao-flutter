@@ -71,12 +71,7 @@ class RetiradaViewModel extends ChangeNotifier {
   }
 
   double getQuantidadeMaxima(int index) {
-    if (notaSelecionada == null) return 0.0;
-    final p = notaSelecionada!.produtos[index] as Map<String, dynamic>;
-    double qtdOriginal = double.tryParse(p['quantidade']?.toString() ?? '1') ?? 1.0;
-    if (qtdOriginal <= 0) qtdOriginal = 1.0;
-    final double qtdJaRetirada = double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
-    final saldoNota = qtdOriginal - qtdJaRetirada;
+    final saldoNota = getSaldoNota(index);
 
     final estoqueDisponivel = estoqueDisponivelPorIndex[index];
     if (estoqueDisponivel == null) {
@@ -85,6 +80,78 @@ class RetiradaViewModel extends ChangeNotifier {
 
     final maximo = saldoNota <= estoqueDisponivel ? saldoNota : estoqueDisponivel;
     return maximo < 0 ? 0 : maximo;
+  }
+
+  double getQuantidadeOriginal(int index) {
+    if (notaSelecionada == null) return 0.0;
+    final p = notaSelecionada!.produtos[index] as Map<String, dynamic>;
+    double qtdOriginal = double.tryParse(p['quantidade']?.toString() ?? '1') ?? 1.0;
+    if (qtdOriginal <= 0) qtdOriginal = 1.0;
+    return qtdOriginal;
+  }
+
+  double getQuantidadeJaRetirada(int index) {
+    if (notaSelecionada == null) return 0.0;
+    final p = notaSelecionada!.produtos[index] as Map<String, dynamic>;
+    return double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
+  }
+
+  double getSaldoNota(int index) {
+    final saldo = getQuantidadeOriginal(index) - getQuantidadeJaRetirada(index);
+    return saldo < 0 ? 0 : saldo;
+  }
+
+  bool isProdutoEntregue(int index) {
+    return getSaldoNota(index) <= 0.001;
+  }
+
+  bool isSemEstoqueDisponivel(int index) {
+    if (isProdutoEntregue(index)) return false;
+    final estoque = estoqueDisponivelPorIndex[index];
+    return estoque != null && estoque <= 0.001;
+  }
+
+  String? validarAntesDeConfirmar() {
+    if (fotosComprovante.isEmpty) {
+      return 'Adicione pelo menos 1 foto do comprovante.';
+    }
+
+    if (!temAlgumProdutoSelecionado) {
+      return 'Selecione pelo menos 1 produto para retirada.';
+    }
+
+    var houveItemValido = false;
+    var houveAjuste = false;
+
+    quantidadesSelecionadas.forEach((index, selecionada) {
+      if (selecionada <= 0) return;
+      final max = getQuantidadeMaxima(index);
+
+      if (max <= 0.001) {
+        quantidadesSelecionadas[index] = 0;
+        houveAjuste = true;
+        return;
+      }
+
+      if (selecionada > max) {
+        quantidadesSelecionadas[index] = max;
+        houveAjuste = true;
+      }
+
+      if ((quantidadesSelecionadas[index] ?? 0) > 0) {
+        houveItemValido = true;
+      }
+    });
+
+    if (houveAjuste) {
+      notifyListeners();
+    }
+
+    if (!houveItemValido) {
+      return 'Nenhum item selecionado possui saldo disponível em estoque no momento.';
+    }
+
+    return null;
   }
 
   void incrementarQuantidade(int index) {
@@ -161,7 +228,15 @@ class RetiradaViewModel extends ChangeNotifier {
   // ─── Confirmação ──────────────────────────────────────────────────
   
   Future<void> confirmarRetirada(String userId) async {
-    if (notaSelecionada == null || !isValidoParaConfirmar) return;
+    if (notaSelecionada == null) return;
+
+    final erroValidacao = validarAntesDeConfirmar();
+    if (erroValidacao != null) {
+      status = RetiradaStatus.error;
+      errorMessage = erroValidacao;
+      notifyListeners();
+      return;
+    }
 
     status = RetiradaStatus.saving;
     errorMessage = null;
