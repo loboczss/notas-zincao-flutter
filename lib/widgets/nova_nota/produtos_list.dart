@@ -263,6 +263,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
         setState(() {
           _selectedProduto = produtoEncontrado;
           _buscaCtrl.text = produtoEncontrado.descricao;
+          _valorCtrl.text = (produtoEncontrado.valorPrecoVarejo ?? 0).toStringAsFixed(2);
         });
       }
       return;
@@ -272,9 +273,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
     setState(() {
       _selectedProduto = _resultados.first;
       _buscaCtrl.text = _selectedProduto!.descricao;
-      if (_selectedProduto!.valorPrecoVarejo != null) {
-        _valorCtrl.text = _selectedProduto!.valorPrecoVarejo!.toStringAsFixed(2);
-      }
+      _valorCtrl.text = (_selectedProduto!.valorPrecoVarejo ?? 0).toStringAsFixed(2);
     });
   }
 
@@ -326,7 +325,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
     if (produto == null || produto.idProduto == null) return;
 
     final qtd = double.tryParse(_qtdCtrl.text.replaceAll(',', '.')) ?? 1.0;
-    final valor = double.tryParse(_valorCtrl.text.replaceAll(',', '.')) ?? 0;
+    final valor = produto.valorPrecoVarejo ?? 0;
 
     final prodData = widget.viewModel.buildProdutoNotaFromCatalogo(
       produto: produto,
@@ -430,9 +429,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                                       setState(() {
                                         _selectedProduto = produto;
                                         _buscaCtrl.text = produto.descricao;
-                                        if (_valorCtrl.text.trim().isEmpty && produto.valorPrecoVarejo != null) {
-                                          _valorCtrl.text = produto.valorPrecoVarejo!.toStringAsFixed(2);
-                                        }
+                                        _valorCtrl.text = (produto.valorPrecoVarejo ?? 0).toStringAsFixed(2);
                                       });
                                     },
                                   );
@@ -532,8 +529,9 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                         const SizedBox(height: 6),
                         _dialogField(
                           _valorCtrl,
-                          'Ex.: 44,00',
+                          'Preço do estoque',
                           inputType: const TextInputType.numberWithOptions(decimal: true),
+                          readOnly: true,
                           isDark: Theme.of(context).brightness == Brightness.dark,
                         ),
                       ],
@@ -570,6 +568,7 @@ Widget _dialogField(
   TextInputType? inputType,
   void Function(String value)? onChanged,
   IconData? prefixIcon,
+  bool readOnly = false,
   required bool isDark,
 }) {
   final fillColor = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04);
@@ -581,6 +580,7 @@ Widget _dialogField(
     controller: ctrl,
     keyboardType: inputType,
     onChanged: onChanged,
+    readOnly: readOnly,
     style: GoogleFonts.inter(color: textColor, fontSize: 14),
     decoration: InputDecoration(
       hintText: hint,

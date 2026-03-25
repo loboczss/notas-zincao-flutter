@@ -57,6 +57,7 @@ class NotaRetirada {
   final List<dynamic> produtos;
   final List<dynamic>? historicoRetiradas;
   final double? valorTotal;
+  final double? descontoTotal;
   final String? observacoes;
   final StatusRetirada statusRetirada;
   final DateTime? dataRetirada;
@@ -79,6 +80,7 @@ class NotaRetirada {
     required this.produtos,
     this.historicoRetiradas,
     this.valorTotal,
+    this.descontoTotal,
     this.observacoes,
     required this.statusRetirada,
     this.dataRetirada,
@@ -105,6 +107,7 @@ class NotaRetirada {
       produtos: map['produtos'] as List<dynamic>,
       historicoRetiradas: map['historico_retiradas'] as List<dynamic>?,
       valorTotal: map['valor_total'] != null ? (map['valor_total'] as num).toDouble() : null,
+      descontoTotal: map['desconto_total'] != null ? (map['desconto_total'] as num).toDouble() : null,
       observacoes: map['observacoes'] as String?,
       statusRetirada: StatusRetirada.fromString(map['status_retirada'] as String),
       dataRetirada: map['data_retirada'] != null 
@@ -132,6 +135,7 @@ class NotaRetirada {
       'produtos': produtos,
       'historico_retiradas': historicoRetiradas,
       'valor_total': valorTotal,
+      'desconto_total': descontoTotal,
       'observacoes': observacoes,
       'status_retirada': statusRetirada.name,
       'data_retirada': dataRetirada?.toIso8601String(),
@@ -156,6 +160,7 @@ class NotaRetirada {
     List<dynamic>? produtos,
     List<dynamic>? historicoRetiradas,
     double? valorTotal,
+    double? descontoTotal,
     String? observacoes,
     StatusRetirada? statusRetirada,
     DateTime? dataRetirada,
@@ -178,6 +183,7 @@ class NotaRetirada {
       produtos: produtos ?? this.produtos,
       historicoRetiradas: historicoRetiradas ?? this.historicoRetiradas,
       valorTotal: valorTotal ?? this.valorTotal,
+      descontoTotal: descontoTotal ?? this.descontoTotal,
       observacoes: observacoes ?? this.observacoes,
       statusRetirada: statusRetirada ?? this.statusRetirada,
       dataRetirada: dataRetirada ?? this.dataRetirada,
@@ -185,5 +191,12 @@ class NotaRetirada {
       comprovanteRetiradaUrl: comprovanteRetiradaUrl ?? this.comprovanteRetiradaUrl,
       criadoEm: criadoEm ?? this.criadoEm,
     );
+  }
+
+  double? get valorComDesconto {
+    if (valorTotal == null) return null;
+    final desconto = descontoTotal ?? 0;
+    final liquido = valorTotal! - desconto;
+    return liquido < 0 ? 0 : liquido;
   }
 }

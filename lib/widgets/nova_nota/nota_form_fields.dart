@@ -380,6 +380,33 @@ class NotaFormFields extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         NotaTextField(
+          controller: viewModel.descontoCtrl,
+          label: 'Valor do Desconto',
+          hint: '0.00',
+          icon: Icons.percent_rounded,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              _buildResumoLinha(context, 'Valor total', viewModel.valorTotalBruto),
+              const SizedBox(height: 6),
+              _buildResumoLinha(context, 'Desconto', viewModel.descontoTotalInformado),
+              Divider(height: 16, color: cs.outlineVariant),
+              _buildResumoLinha(context, 'Total com desconto', viewModel.valorTotalComDesconto, isHighlight: true),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        NotaTextField(
           controller: viewModel.observacoesCtrl,
           label: 'Observações',
           hint: 'Anotações adicionais...',
@@ -408,6 +435,38 @@ class NotaFormFields extends StatelessWidget {
       ],
     );
     });
+  }
+
+  Widget _buildResumoLinha(
+    BuildContext context,
+    String label,
+    double valor, {
+    bool isHighlight = false,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final textoValor = 'R\$ ${valor.toStringAsFixed(2)}';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: cs.onSurfaceVariant,
+            fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+        Text(
+          textoValor,
+          style: GoogleFonts.inter(
+            fontSize: isHighlight ? 15 : 13,
+            color: isHighlight ? AppColors.primary : cs.onSurface,
+            fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _selectDate(BuildContext context, TextEditingController ctrl) async {

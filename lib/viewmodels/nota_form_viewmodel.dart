@@ -42,6 +42,7 @@ class NotaFormViewModel extends ChangeNotifier {
     numeroNotaCtrl.addListener(_onFieldChanged);
     serieNotaCtrl.addListener(_onFieldChanged);
     dataCompraCtrl.addListener(_onFieldChanged);
+    descontoCtrl.addListener(_onDiscountChanged);
   }
 
   void _onFieldChanged() {
@@ -49,6 +50,10 @@ class NotaFormViewModel extends ChangeNotifier {
     // removemos da lista para parar de piscar.
     if (_missingFields.isEmpty) return;
     _checkMissingFields();
+  }
+
+  void _onDiscountChanged() {
+    _notifySafe();
   }
 
   // ─── Estado ──────────────────────────────────────────────────
@@ -103,8 +108,23 @@ class NotaFormViewModel extends ChangeNotifier {
   final TextEditingController dataCompraCtrl = TextEditingController();
   final TextEditingController dataPrevistaRetiradaCtrl = TextEditingController();
   final TextEditingController valorTotalCtrl = TextEditingController();
+  final TextEditingController descontoCtrl = TextEditingController(text: '0.00');
   final TextEditingController observacoesCtrl = TextEditingController();
   final TextEditingController contatoIdCtrl = TextEditingController();
+
+  double get descontoTotalInformado => _parseCurrency(descontoCtrl.text);
+
+  double get valorTotalBruto {
+    if (_produtos.isNotEmpty) {
+      return _calcularTotalProdutos(_produtos);
+    }
+    return _parseCurrency(valorTotalCtrl.text);
+  }
+
+  double get valorTotalComDesconto {
+    final liquido = valorTotalBruto - descontoTotalInformado;
+    return liquido < 0 ? 0 : liquido;
+  }
 
   List<Map<String, dynamic>> _produtos = [];
   List<Map<String, dynamic>> get produtos => List.unmodifiable(_produtos);
@@ -268,6 +288,12 @@ class NotaFormViewModel extends ChangeNotifier {
       return;
     }
 
+    final erroDesconto = _validarDesconto();
+    if (erroDesconto != null) {
+      _setError(erroDesconto);
+      return;
+    }
+
     final erroConferencia = _validarConferenciaComTotalDaFoto();
     if (erroConferencia != null) {
       _setError(erroConferencia);
@@ -358,10 +384,10 @@ class NotaFormViewModel extends ChangeNotifier {
         valorTotalCtrl.text = totalCalculado.toStringAsFixed(2);
         valorTotal = totalCalculado;
       } else if (valorTotalCtrl.text.isNotEmpty) {
-        valorTotal = double.tryParse(
-          valorTotalCtrl.text.replaceAll(',', '.').replaceAll('R\$', '').trim()
-        );
+        valorTotal = _parseCurrency(valorTotalCtrl.text);
       }
+
+      final descontoTotal = descontoTotalInformado;
 
       // Salva no CRM se o cliente não existe
       if (telefoneClienteCtrl.text.isNotEmpty && nomeClienteCtrl.text.isNotEmpty) {
@@ -396,6 +422,7 @@ class NotaFormViewModel extends ChangeNotifier {
         dataPrevistaRetirada: dataPrevistaRetirada,
         produtos: _produtos,
         valorTotal: valorTotal,
+        descontoTotal: descontoTotal,
         observacoes: observacoesCtrl.text.isNotEmpty ? observacoesCtrl.text : null,
         contatoId: contatoIdCtrl.text.isNotEmpty ? contatoIdCtrl.text : null,
       );
@@ -427,6 +454,7 @@ class NotaFormViewModel extends ChangeNotifier {
     dataCompraCtrl.clear();
     dataPrevistaRetiradaCtrl.clear();
     valorTotalCtrl.clear();
+    descontoCtrl.text = '0.00';
     observacoesCtrl.clear();
     contatoIdCtrl.clear();
 
@@ -447,6 +475,7 @@ class NotaFormViewModel extends ChangeNotifier {
   void addProduto(Map<String, dynamic> produto) {
     if (produto['id_produto_estoque'] == null) return;
     _produtos.add(produto);
+    _sincronizarValorTotalComProdutos();
     _notifySafe();
   }
 
@@ -454,6 +483,7 @@ class NotaFormViewModel extends ChangeNotifier {
   void removeProduto(int index) {
     if (index >= 0 && index < _produtos.length) {
       _produtos.removeAt(index);
+      _sincronizarValorTotalComProdutos();
       _notifySafe();
     }
   }
@@ -463,6 +493,7 @@ class NotaFormViewModel extends ChangeNotifier {
     if (index >= 0 && index < _produtos.length) {
       if (produto['id_produto_estoque'] == null) return;
       _produtos[index] = produto;
+      _sincronizarValorTotalComProdutos();
       _notifySafe();
     }
   }
@@ -494,26 +525,65 @@ class NotaFormViewModel extends ChangeNotifier {
   }
 
   Future<ProdutoEstoque?> findProdutoCatalogo(String nome) async {
-    final target = _normalizeText(nome);
+    final targetOriginal = _normalizeText(nome);
+    final target = _normalizeProductQuery(targetOriginal);
     if (target.isEmpty) return null;
 
-    final resultados = await _estoqueService.searchForNotePicker(query: nome, limit: 20);
-    if (resultados.isEmpty) return null;
+    final consultas = <String>[
+      nome.trim(),
+      target,
+      ..._buildSearchCandidates(target),
+    ].where((q) => q.trim().isNotEmpty).toSet().toList();
 
-    for (final produto in resultados) {
+    final agregados = <ProdutoEstoque>[];
+    for (final consulta in consultas.take(5)) {
+      final resultados = await _estoqueService.searchForNotePicker(query: consulta, limit: 30);
+      for (final item in resultados) {
+        final exists = agregados.any((p) => p.idProduto == item.idProduto && p.idProduto != null);
+        if (!exists) {
+          agregados.add(item);
+        }
+      }
+      if (agregados.length >= 30) break;
+    }
+
+    if (agregados.isEmpty) return null;
+
+    for (final produto in agregados) {
       if (_normalizeText(produto.descricao) == target) {
         return produto;
       }
     }
 
-    for (final produto in resultados) {
+    for (final produto in agregados) {
       final descricaoNorm = _normalizeText(produto.descricao);
       if (descricaoNorm.contains(target) || target.contains(descricaoNorm)) {
         return produto;
       }
     }
 
-    return resultados.first;
+    final tokenAlvo = target.split(' ').where((t) => t.length >= 3).toSet();
+    ProdutoEstoque? melhor;
+    var melhorScore = -1;
+
+    for (final produto in agregados) {
+      final descricao = _normalizeText(produto.descricao);
+      final tokensDescricao = descricao.split(' ').where((t) => t.length >= 3).toSet();
+      var score = tokensDescricao.intersection(tokenAlvo).length;
+      if (descricao.contains(target)) score += 3;
+      if (target.contains(descricao)) score += 2;
+
+      if (score > melhorScore) {
+        melhor = produto;
+        melhorScore = score;
+      }
+    }
+
+    if (melhor != null && melhorScore > 0) {
+      return melhor;
+    }
+
+    return agregados.first;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────
@@ -591,10 +661,51 @@ class NotaFormViewModel extends ChangeNotifier {
         .trim();
   }
 
+  String _normalizeProductQuery(String value) {
+    final base = value
+        .replaceAll(RegExp(r'^\d+([.,]\d+)?\s*'), '')
+        .replaceAll(RegExp(r'\b(un|und|pc|pcs|cx|kit)\b'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return base.isEmpty ? value : base;
+  }
+
+  List<String> _buildSearchCandidates(String normalized) {
+    final tokens = normalized
+        .split(' ')
+        .map((t) => t.trim())
+        .where((t) => t.length >= 3)
+        .where((t) => !{'com', 'para', 'de', 'da', 'do', 'e'}.contains(t))
+        .toList();
+
+    final candidatos = <String>[];
+    if (tokens.length >= 2) {
+      candidatos.add(tokens.take(2).join(' '));
+    }
+    if (tokens.length >= 3) {
+      candidatos.add(tokens.take(3).join(' '));
+    }
+    candidatos.addAll(tokens.take(3));
+    return candidatos;
+  }
+
   double _toDouble(dynamic value) {
     if (value == null) return 0;
     if (value is num) return value.toDouble();
     return double.tryParse(value.toString().replaceAll(',', '.').trim()) ?? 0;
+  }
+
+  double _parseCurrency(String value) {
+    var clean = value
+        .replaceAll('R\$', '')
+        .replaceAll(' ', '')
+        .trim();
+
+    if (clean.contains(',')) {
+      clean = clean.replaceAll('.', '').replaceAll(',', '.');
+    }
+
+    return double.tryParse(clean) ?? 0;
   }
 
   double _calcularTotalProdutos(List<Map<String, dynamic>> itens) {
@@ -633,6 +744,23 @@ class NotaFormViewModel extends ChangeNotifier {
     }
 
     return null;
+  }
+
+  String? _validarDesconto() {
+    final desconto = descontoTotalInformado;
+    if (desconto < 0) {
+      return 'O valor do desconto não pode ser negativo.';
+    }
+    if (desconto > valorTotalBruto) {
+      return 'O desconto não pode ser maior que o valor total da nota.';
+    }
+    return null;
+  }
+
+  void _sincronizarValorTotalComProdutos() {
+    if (_produtos.isEmpty) return;
+    final total = _calcularTotalProdutos(_produtos);
+    valorTotalCtrl.text = total.toStringAsFixed(2);
   }
 
   String? _validarConferenciaComTotalDaFoto() {
@@ -676,7 +804,29 @@ class NotaFormViewModel extends ChangeNotifier {
       final nome = (produtoIa['nome'] ?? '').toString().trim();
       if (nome.isEmpty) continue;
 
-      final produtoCatalogo = await findProdutoCatalogo(nome);
+      ProdutoEstoque? produtoCatalogo;
+
+      final idDireto = produtoIa['id_produto_estoque'] ?? produtoIa['id_produto'];
+      final idProduto = idDireto is int ? idDireto : int.tryParse((idDireto ?? '').toString());
+      if (idProduto != null) {
+        produtoCatalogo = await findProdutoCatalogoById(idProduto);
+      }
+
+      produtoCatalogo ??= await findProdutoCatalogo(nome);
+
+      if (produtoCatalogo == null) {
+        final numerosNoNome = RegExp(r'\d{4,}').allMatches(nome).map((m) => m.group(0)).whereType<String>();
+        for (final numero in numerosNoNome) {
+          final idNoTexto = int.tryParse(numero);
+          if (idNoTexto == null) continue;
+          final candidato = await findProdutoCatalogoById(idNoTexto);
+          if (candidato != null) {
+            produtoCatalogo = candidato;
+            break;
+          }
+        }
+      }
+
       if (produtoCatalogo == null || produtoCatalogo.idProduto == null) {
         continue;
       }
@@ -686,11 +836,7 @@ class NotaFormViewModel extends ChangeNotifier {
           ) ??
           1;
 
-      final valorUnitario = double.tryParse(
-        (produtoIa['valor_unitario'] ?? produtoCatalogo.valorPrecoVarejo ?? '0')
-            .toString()
-            .replaceAll(',', '.'),
-      );
+      final valorUnitario = produtoCatalogo.valorPrecoVarejo ?? 0;
 
       itens.add(
         buildProdutoNotaFromCatalogo(
@@ -712,6 +858,7 @@ class NotaFormViewModel extends ChangeNotifier {
     numeroNotaCtrl.removeListener(_onFieldChanged);
     serieNotaCtrl.removeListener(_onFieldChanged);
     dataCompraCtrl.removeListener(_onFieldChanged);
+    descontoCtrl.removeListener(_onDiscountChanged);
 
     nomeClienteCtrl.dispose();
     documentoClienteCtrl.dispose();
@@ -722,6 +869,7 @@ class NotaFormViewModel extends ChangeNotifier {
     dataCompraCtrl.dispose();
     dataPrevistaRetiradaCtrl.dispose();
     valorTotalCtrl.dispose();
+    descontoCtrl.dispose();
     observacoesCtrl.dispose();
     contatoIdCtrl.dispose();
     super.dispose();

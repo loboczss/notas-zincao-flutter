@@ -267,6 +267,7 @@ IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code b
     DateTime? dataPrevistaRetirada,
     List<Map<String, dynamic>> produtos = const [],
     double? valorTotal,
+    double? descontoTotal,
     String? observacoes,
     String? contatoId,
   }) async {
@@ -283,6 +284,7 @@ IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code b
       'data_prevista_retirada': dataPrevistaRetirada?.toIso8601String().split('T').first,
       'produtos': produtos,
       'valor_total': valorTotal,
+      'desconto_total': descontoTotal,
       'observacoes': observacoes,
       'status_retirada': 'pendente',
       'contato_id': contatoId,
