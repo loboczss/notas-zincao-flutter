@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
 import 'package:notas_zincao_flutter/services/retirada_form_service.dart';
+import 'package:notas_zincao_flutter/viewmodels/product_stock_header_viewmodel.dart';
 
 enum RetiradaStatus { idle, capturing, saving, success, error }
 
@@ -261,6 +262,10 @@ class RetiradaViewModel extends ChangeNotifier {
       );
 
       notaSelecionada = notaAtualizada;
+      
+      // Atualiza o saldo do produto no header
+      ProductStockHeaderViewModel.instance.refreshStock();
+      
       status = RetiradaStatus.success;
       
     } catch (e) {

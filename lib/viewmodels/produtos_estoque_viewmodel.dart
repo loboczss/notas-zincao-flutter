@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
+import 'package:notas_zincao_flutter/viewmodels/product_stock_header_viewmodel.dart';
 
 /// ViewModel para a tela de gestão do estoque de produtos.
 /// Usa paginação server-side com infinite scroll e busca por ILIKE no banco.
@@ -119,6 +120,12 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
 
     try {
       await _service.updateProduto(produto);
+      
+      // Atualiza o saldo do produto no header (caso seja o monitorado)
+      if (produto.idProduto == ProductStockHeaderViewModel.productId) {
+        ProductStockHeaderViewModel.instance.refreshStock();
+      }
+      
       await carregarProdutos();
     } catch (e) {
       erro = e.toString();

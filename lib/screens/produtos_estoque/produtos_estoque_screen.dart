@@ -8,9 +8,15 @@ import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_card.dart'
 import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_dialog.dart';
 import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_search_bar.dart';
 import 'package:notas_zincao_flutter/widgets/shared/app_error_feedback.dart';
+import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 
 class ProdutosEstoqueScreen extends StatefulWidget {
-  const ProdutosEstoqueScreen({super.key});
+  final AuthViewModel authViewModel;
+
+  const ProdutosEstoqueScreen({
+    super.key,
+    required this.authViewModel,
+  });
 
   @override
   State<ProdutosEstoqueScreen> createState() => _ProdutosEstoqueScreenState();
@@ -73,6 +79,17 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
   }
 
   Future<void> _abrirDialog({int? index}) async {
+    final isAdmin = widget.authViewModel.profile?.role?.toLowerCase() == 'admin';
+    if (!isAdmin) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Apenas administradores podem editar produtos.'),
+        ),
+      );
+      return;
+    }
+
     final produto =
       index != null ? _viewModel.produtos[index] : null;
 
@@ -106,6 +123,7 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
     final produtos = _viewModel.produtos;
     final isLoading = _viewModel.isLoading;
     final cs = Theme.of(context).colorScheme;
+    final isAdmin = widget.authViewModel.profile?.role?.toLowerCase() == 'admin';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -162,6 +180,7 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
                               return ProdutoCard(
                                 produto: produtos[index],
                                 onEdit: () => _abrirDialog(index: index),
+                                canEdit: isAdmin,
                               );
                             },
                           ),
@@ -169,16 +188,18 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        onPressed: () => _abrirDialog(),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: Text(
-          'Cadastrar Produto',
-          style: GoogleFonts.inter(
-              color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              backgroundColor: AppColors.primary,
+              onPressed: () => _abrirDialog(),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: Text(
+                'Cadastrar Produto',
+                style: GoogleFonts.inter(
+                    color: Colors.white, fontWeight: FontWeight.w700),
+              ),
+            )
+          : null,
     );
   }
 

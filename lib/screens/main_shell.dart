@@ -49,7 +49,7 @@ class _MainShellState extends State<MainShell> {
         children: [
           NotasRetiradaScreen(authViewModel: widget.authViewModel),
           NotaRegisterScreen(authViewModel: widget.authViewModel),
-          const ProdutosEstoqueScreen(),
+          ProdutosEstoqueScreen(authViewModel: widget.authViewModel),
         ],
       ),
       bottomNavigationBar: SafeArea(

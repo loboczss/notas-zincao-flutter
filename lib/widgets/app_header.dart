@@ -3,6 +3,7 @@ import 'package:notas_zincao_flutter/theme/theme_controller.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 import 'package:notas_zincao_flutter/widgets/header/header_logo.dart';
 import 'package:notas_zincao_flutter/widgets/header/header_user_info.dart';
+import 'package:notas_zincao_flutter/widgets/product_header_stock.dart';
 
 /// Header principal que agora é composto por sub-componentes.
 /// Implementa layout responsivo para evitar overflow em telas pequenas ou com longos inputs.
@@ -41,6 +42,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Flexible(child: HeaderLogo()),
+              const ProductHeaderStock(),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

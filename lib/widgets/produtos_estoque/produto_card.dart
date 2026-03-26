@@ -7,11 +7,13 @@ import 'package:notas_zincao_flutter/theme/app_colors.dart';
 class ProdutoCard extends StatelessWidget {
   final ProdutoEstoque produto;
   final VoidCallback onEdit;
+  final bool canEdit;
 
   const ProdutoCard({
     super.key,
     required this.produto,
     required this.onEdit,
+    this.canEdit = true,
   });
 
   @override
@@ -114,9 +116,10 @@ class ProdutoCard extends StatelessWidget {
           ),
 
           IconButton(
-            onPressed: onEdit,
+            onPressed: canEdit ? onEdit : null,
+            tooltip: canEdit ? 'Editar produto' : 'Somente admin pode editar',
             icon: Icon(
-              Icons.edit_rounded,
+              canEdit ? Icons.edit_rounded : Icons.lock_outline_rounded,
               color: cs.onSurface.withValues(alpha: 0.7),
             ),
           ),
