@@ -53,95 +53,107 @@ Future<void> _makePhoneCall(String phoneNumber) async {
     debugPrint('Erro ao fazer chamada: $e');
   }
 }
+
+// ── Widget builder para o menu do admin ────────────────────────────────────────
+PopupMenuButton<String> _buildAdminMenu(
+  BuildContext context, 
+  NotaRetirada nota, 
+  Function()? onActionComplete,
+) {
   final cs = Theme.of(context).colorScheme;
+  final service = NotaRetiradaService();
 
   return PopupMenuButton<String>(
     icon: Icon(Icons.more_vert, color: cs.onSurface),
     color: cs.surface,
     onSelected: (value) async {
-      final service = NotaRetiradaService();
       if (value == 'edit') {
-         Navigator.pop(context);
-         Navigator.push(context, MaterialPageRoute(builder: (_) => NotaEditScreen(nota: nota, onSave: onActionComplete)));
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NotaEditScreen(nota: nota, onSave: onActionComplete),
+          ),
+        );
       } else if (value == 'cancel') {
-         showDialog(
-           context: context,
-           builder: (ctx) => ConfirmationDialog(
-             title: 'Cancelar Nota',
-             message: 'Tem certeza que deseja cancelar esta nota? Esta ação não pode ser desfeita.',
-             confirmLabel: 'Sim, Cancelar',
-             confirmColor: AppColors.warning,
-             onConfirm: () async {
-               try {
-                 await service.cancel(nota.id);
-                 if (!context.mounted) return;
-                 if (onActionComplete != null) onActionComplete();
-                 Navigator.pop(context); // Fecha o sheet
-                 showDialog(
-                   context: context,
-                   builder: (fctx) => const ActionFeedbackDialog(
-                     isSuccess: true,
-                     title: 'Sucesso!',
-                     message: 'A nota foi cancelada com sucesso.',
-                   ),
-                 );
-               } catch (e) {
-                 if (!context.mounted) return;
-                 showDialog(
-                   context: context,
-                   builder: (fctx) => ActionFeedbackDialog(
-                     isSuccess: false,
-                     title: 'Erro',
-                     message: 'Não foi possível cancelar a nota: $e',
-                   ),
-                 );
-               }
-             },
-           ),
-         );
+        showDialog(
+          context: context,
+          builder: (ctx) => ConfirmationDialog(
+            title: 'Cancelar Nota',
+            message: 'Tem certeza que deseja cancelar esta nota? Esta ação não pode ser desfeita.',
+            confirmLabel: 'Sim, Cancelar',
+            confirmColor: AppColors.warning,
+            onConfirm: () async {
+              try {
+                await service.cancel(nota.id);
+                if (!context.mounted) return;
+                if (onActionComplete != null) onActionComplete();
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (fctx) => const ActionFeedbackDialog(
+                    isSuccess: true,
+                    title: 'Sucesso!',
+                    message: 'A nota foi cancelada com sucesso.',
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                showDialog(
+                  context: context,
+                  builder: (fctx) => ActionFeedbackDialog(
+                    isSuccess: false,
+                    title: 'Erro',
+                    message: 'Não foi possível cancelar a nota: $e',
+                  ),
+                );
+              }
+            },
+          ),
+        );
       } else if (value == 'delete') {
-         showDialog(
-           context: context,
-           builder: (ctx) => ConfirmationDialog(
-             title: 'Excluir Nota',
-             message: 'Deseja excluir permanentemente esta nota do sistema?',
-             confirmLabel: 'Excluir Agora',
-             confirmColor: AppColors.error,
-             onConfirm: () async {
-               try {
-                 await service.delete(nota.id);
-                 if (!context.mounted) return;
-                 if (onActionComplete != null) onActionComplete();
-                 Navigator.pop(context); // Fecha o sheet
-                 showDialog(
-                   context: context,
-                   builder: (fctx) => const ActionFeedbackDialog(
-                     isSuccess: true,
-                     title: 'Excluída!',
-                     message: 'A nota foi removida definitivamente do sistema.',
-                   ),
-                 );
-               } catch (e) {
-                 if (!context.mounted) return;
-                 showDialog(
-                   context: context,
-                   builder: (fctx) => ActionFeedbackDialog(
-                     isSuccess: false,
-                     title: 'Erro',
-                     message: 'Ocorreu um erro ao tentar excluir: $e',
-                   ),
-                 );
-               }
-             },
-           ),
-         );
+        showDialog(
+          context: context,
+          builder: (ctx) => ConfirmationDialog(
+            title: 'Excluir Nota',
+            message: 'Deseja excluir permanentemente esta nota do sistema?',
+            confirmLabel: 'Excluir Agora',
+            confirmColor: AppColors.error,
+            onConfirm: () async {
+              try {
+                await service.delete(nota.id);
+                if (!context.mounted) return;
+                if (onActionComplete != null) onActionComplete();
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (fctx) => const ActionFeedbackDialog(
+                    isSuccess: true,
+                    title: 'Excluída!',
+                    message: 'A nota foi removida definitivamente do sistema.',
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                showDialog(
+                  context: context,
+                  builder: (fctx) => ActionFeedbackDialog(
+                    isSuccess: false,
+                    title: 'Erro',
+                    message: 'Ocorreu um erro ao tentar excluir: $e',
+                  ),
+                );
+              }
+            },
+          ),
+        );
       }
     },
     itemBuilder: (context) => [
       PopupMenuItem(value: 'edit', child: Text('Editar Nota (Admin)', style: TextStyle(color: cs.onSurface))),
       if (nota.statusRetirada != StatusRetirada.cancelada)
-        const PopupMenuItem(value: 'cancel', child: Text('Cancelar Nota', style: TextStyle(color: AppColors.warning))),
-      const PopupMenuItem(value: 'delete', child: Text('Excluir Nota', style: TextStyle(color: AppColors.error))),
+        PopupMenuItem(value: 'cancel', child: Text('Cancelar Nota', style: TextStyle(color: cs.onSurface))),
+      PopupMenuItem(value: 'delete', child: Text('Excluir Nota', style: TextStyle(color: cs.onSurface))),
     ],
   );
 }
