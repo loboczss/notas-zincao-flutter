@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/widgets/minhas_notas/status_badge.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
@@ -11,8 +12,47 @@ import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/widgets/shared/action_dialogs.dart';
 import 'package:notas_zincao_flutter/widgets/shared/full_screen_image_viewer.dart';
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-Widget _buildAdminMenu(BuildContext context, NotaRetirada nota, Function()? onActionComplete) {
+/// Remove caracteres não numéricos do telefone para preparar para WhatsApp/URL
+String _sanitizePhone(String phone) {
+  return phone.replaceAll(RegExp(r'[^\d+]'), '');
+}
+
+/// Abre WhatsApp com o número fornecido
+Future<void> _openWhatsApp(String phoneNumber) async {
+  try {
+    final sanitized = _sanitizePhone(phoneNumber);
+    // Remove o '+' se estiver no início (WhatsApp link formato)
+    final clean = sanitized.startsWith('+') ? sanitized.substring(1) : sanitized;
+    
+    final whatsappUrl = Uri.parse('https://wa.me/$clean');
+    
+    if (await canLaunchUrl(whatsappUrl)) {
+      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch WhatsApp';
+    }
+  } catch (e) {
+    debugPrint('Erro ao abrir WhatsApp: $e');
+  }
+}
+
+/// Faz uma chamada telefônica
+Future<void> _makePhoneCall(String phoneNumber) async {
+  try {
+    final sanitized = _sanitizePhone(phoneNumber);
+    final telUrl = Uri.parse('tel:$sanitized');
+    
+    if (await canLaunchUrl(telUrl)) {
+      await launchUrl(telUrl);
+    } else {
+      throw 'Could not launch phone call';
+    }
+  } catch (e) {
+    debugPrint('Erro ao fazer chamada: $e');
+  }
+}
   final cs = Theme.of(context).colorScheme;
 
   return PopupMenuButton<String>(
@@ -218,12 +258,55 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                               if (nota.telefoneCliente != null) ...[
                                 const SizedBox(height: 6),
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Icon(Icons.phone, size: 14, color: cs.onSurface.withValues(alpha: 0.6)),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      nota.telefoneCliente!,
-                                      style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75), fontSize: 13),
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.phone, size: 14, color: cs.onSurface.withValues(alpha: 0.6)),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              nota.telefoneCliente!,
+                                              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75), fontSize: 13),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Tooltip(
+                                      message: 'WhatsApp',
+                                      child: SizedBox(
+                                        width: 32,
+                                        height: 32,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 18,
+                                          onPressed: () => _openWhatsApp(nota.telefoneCliente!),
+                                          icon: Icon(
+                                            Icons.chat_bubble_outline,
+                                            color: AppColors.success,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Tooltip(
+                                      message: 'Ligar',
+                                      child: SizedBox(
+                                        width: 32,
+                                        height: 32,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 18,
+                                          onPressed: () => _makePhoneCall(nota.telefoneCliente!),
+                                          icon: Icon(
+                                            Icons.call_outlined,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
