@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart analyze:*)",
+      "Bash(grep -n \"capturePhoto\\\\|pickPhoto\\\\|saveNota\\\\|resetForm\\\\|clearDuplicateFound\\\\|clearQuotaError\\\\|addProduto\\\\|removeProduto\\\\|updateProduto\\\\|buildProdutoNota\\\\|searchProdutos\\\\|findProduto\\\\|loadProdutos\\\\|analyzeWithAI\\\\|upsertCrmContact\" lib/screens/nota_register_screen.dart lib/widgets/nova_nota/*.dart)",
+      "Bash(grep -rn \"''notas_retirada''\\\\|''crm_zincao''\\\\|''cupons''\\\\|''bd_estoque_geral''\" lib/ --include=\"*.dart\")",
+      "Bash(grep -rn \"import ''dart:io'';\" lib/services/nota_form_service.dart lib/services/retirada_form_service.dart)"
+    ]
+  }
+}

@@ -1,37 +1,16 @@
 import 'dart:io';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
+import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
+import 'package:notas_zincao_flutter/services/storage_service.dart';
 import 'package:notas_zincao_flutter/supabase_config.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:path/path.dart' as p;
 
 class RetiradaService {
   final EstoqueProdutoService _estoqueService = EstoqueProdutoService();
 
-  /// Faz upload de múltiplas imagens no Supabase Storage e retorna a lista de URLs públicas.
-  Future<List<String>> uploadImages(List<File> images, String userId) async {
-    List<String> urls = [];
-    final bucket = supabase.storage.from('cupons');
-
-    for (var i = 0; i < images.length; i++) {
-        final imageFile = images[i];
-        final ext = p.extension(imageFile.path).replaceFirst('.', '');
-        final fileName = '${userId}_retirada_${DateTime.now().millisecondsSinceEpoch}_$i.$ext';
-        final storagePath = 'cupons/$fileName';
-
-        final bytes = await imageFile.readAsBytes();
-
-        await bucket.uploadBinary(
-          storagePath, 
-          bytes, 
-          fileOptions: FileOptions(contentType: 'image/$ext', upsert: true)
-        );
-
-        final publicUrl = bucket.getPublicUrl(storagePath);
-        urls.add(publicUrl);
-    }
-    return urls;
-  }
+  Future<List<String>> uploadImages(List<File> images, String userId) =>
+      StorageService.uploadImages(images, userId);
 
   /// Registra uma nova retirada (parcial ou total) para uma nota.
   Future<NotaRetirada> registrarRetirada({
@@ -47,11 +26,13 @@ class RetiradaService {
     final Map<int, double> retiradasEfetivas = {};
 
     for (int i = 0; i < novosProdutos.length; i++) {
-      final p = Map<String, dynamic>.from(novosProdutos[i]);
-      double qtdOriginal = double.tryParse(p['quantidade']?.toString() ?? '1') ?? 1.0;
+      final raw = novosProdutos[i];
+      if (raw is! Map) continue;
+      final p = Map<String, dynamic>.from(raw);
+      double qtdOriginal = double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
       if (qtdOriginal <= 0) qtdOriginal = 1.0;
-      
-      final double qtdJaRetiradaAnteriormente = double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
+
+      final double qtdJaRetiradaAnteriormente = double.tryParse(p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ?? 0.0;
       
       final double qtdRetirandoAgora = quantidadesRetiradas[i] ?? 0.0;
       final double saldoNaNota = (qtdOriginal - qtdJaRetiradaAnteriormente) < 0
@@ -60,7 +41,7 @@ class RetiradaService {
 
       double qtdRetiradaEfetiva = qtdRetirandoAgora <= saldoNaNota ? qtdRetirandoAgora : saldoNaNota;
 
-      final idProdutoEstoque = p['id_produto_estoque'];
+      final idProdutoEstoque = p[ColsProdutoNota.idProdutoEstoque];
       if (qtdRetiradaEfetiva > 0 && idProdutoEstoque is int) {
         qtdRetiradaEfetiva = await _estoqueService.baixarEstoqueComFallback(
           idProduto: idProdutoEstoque,
@@ -71,7 +52,7 @@ class RetiradaService {
       final novaQtdRetirada = qtdJaRetiradaAnteriormente + qtdRetiradaEfetiva;
       retiradasEfetivas[i] = qtdRetiradaEfetiva;
       
-      p['quantidade_retirada'] = novaQtdRetirada;
+      p[ColsProdutoNota.quantidadeRetirada] = novaQtdRetirada;
       novosProdutos[i] = p;
 
       // Usando uma margem de tolerância para comparações double
@@ -102,17 +83,16 @@ class RetiradaService {
 
     // 4. Salva no banco de dados
     final response = await supabase
-        .from('notas_retirada')
+        .from(DbTables.notasRetirada)
         .update({
-          'produtos': novosProdutos,
-          'historico_retiradas': novoHistorico,
-          'status_retirada': novoStatus,
-          'atualizado_em': DateTime.now().toIso8601String(),
-          // Se completou a entrega:
+          ColsNotasRetirada.produtos: novosProdutos,
+          ColsNotasRetirada.historicoRetiradas: novoHistorico,
+          ColsNotasRetirada.statusRetirada: novoStatus,
+          ColsNotasRetirada.atualizadoEm: DateTime.now().toIso8601String(),
           if (novoStatus == 'retirada' && nota.dataRetirada == null)
-            'data_retirada': DateTime.now().toIso8601String(),
+            ColsNotasRetirada.dataRetirada: DateTime.now().toIso8601String(),
         })
-        .eq('id', nota.id)
+        .eq(ColsNotasRetirada.id, nota.id)
         .select()
         .single();
 

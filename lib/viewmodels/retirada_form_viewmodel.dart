@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
 import 'package:notas_zincao_flutter/services/retirada_form_service.dart';
@@ -13,8 +14,10 @@ class RetiradaViewModel extends ChangeNotifier {
   final EstoqueProdutoService _estoqueService = EstoqueProdutoService();
   final ImagePicker _picker = ImagePicker();
 
+  bool _isDisposed = false;
+
   NotaRetirada? notaSelecionada;
-  
+
   // Mapa de Indice do Produto -> Quantidade selecionada para retirar agora
   final Map<int, double> quantidadesSelecionadas = {};
   
@@ -51,8 +54,10 @@ class RetiradaViewModel extends ChangeNotifier {
     try {
       final ids = <int>[];
       for (int i = 0; i < notaSelecionada!.produtos.length; i++) {
-        final p = notaSelecionada!.produtos[i] as Map<String, dynamic>;
-        final idProduto = p['id_produto_estoque'];
+        final raw = notaSelecionada!.produtos[i];
+        if (raw is! Map) continue;
+        final p = Map<String, dynamic>.from(raw);
+        final idProduto = p[ColsProdutoNota.idProdutoEstoque];
         if (idProduto is int) {
           ids.add(idProduto);
         }
@@ -60,15 +65,24 @@ class RetiradaViewModel extends ChangeNotifier {
 
       final estoquePorId = await _estoqueService.fetchQuantidadesDisponiveis(ids);
 
+      if (_isDisposed) return;
       for (int i = 0; i < notaSelecionada!.produtos.length; i++) {
-        final p = notaSelecionada!.produtos[i] as Map<String, dynamic>;
-        final idProduto = p['id_produto_estoque'];
+        final raw = notaSelecionada!.produtos[i];
+        if (raw is! Map) continue;
+        final p = Map<String, dynamic>.from(raw);
+        final idProduto = p[ColsProdutoNota.idProdutoEstoque];
         if (idProduto is int) {
           estoqueDisponivelPorIndex[i] = estoquePorId[idProduto] ?? 0;
         }
       }
       notifyListeners();
     } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 
   double getQuantidadeMaxima(int index) {
@@ -84,17 +98,23 @@ class RetiradaViewModel extends ChangeNotifier {
   }
 
   double getQuantidadeOriginal(int index) {
-    if (notaSelecionada == null) return 0.0;
-    final p = notaSelecionada!.produtos[index] as Map<String, dynamic>;
-    double qtdOriginal = double.tryParse(p['quantidade']?.toString() ?? '1') ?? 1.0;
+    final produtos = notaSelecionada?.produtos;
+    if (produtos == null || index >= produtos.length) return 0.0;
+    final raw = produtos[index];
+    if (raw is! Map) return 0.0;
+    final p = Map<String, dynamic>.from(raw);
+    double qtdOriginal = double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
     if (qtdOriginal <= 0) qtdOriginal = 1.0;
     return qtdOriginal;
   }
 
   double getQuantidadeJaRetirada(int index) {
-    if (notaSelecionada == null) return 0.0;
-    final p = notaSelecionada!.produtos[index] as Map<String, dynamic>;
-    return double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
+    final produtos = notaSelecionada?.produtos;
+    if (produtos == null || index >= produtos.length) return 0.0;
+    final raw = produtos[index];
+    if (raw is! Map) return 0.0;
+    final p = Map<String, dynamic>.from(raw);
+    return double.tryParse(p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ?? 0.0;
   }
 
   double getSaldoNota(int index) {

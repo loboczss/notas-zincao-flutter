@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
@@ -42,9 +41,11 @@ class ProdutoDialog extends StatefulWidget {
 }
 
 class _ProdutoDialogState extends State<ProdutoDialog> {
+  late final TextEditingController _idCtrl;
   late final TextEditingController _tipoCtrl;
   late final TextEditingController _descricaoCtrl;
   late final TextEditingController _quantidadeCtrl;
+  late final TextEditingController _acrescentarCtrl;
   late final TextEditingController _precoCtrl;
   late String _embalagemSelecionada;
 
@@ -64,6 +65,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
   void initState() {
     super.initState();
     final p = widget.produto;
+    _idCtrl = TextEditingController(text: p?.idProduto?.toString() ?? '');
     _tipoCtrl = TextEditingController(text: p?.tipoProduto ?? '');
     _descricaoCtrl = TextEditingController(text: p?.descricao ?? '');
     _quantidadeCtrl = TextEditingController(
@@ -71,6 +73,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
           ? p.quantidadeEstoque.toString().replaceAll(RegExp(r'\.0$'), '')
           : '0',
     );
+    _acrescentarCtrl = TextEditingController(text: '0');
     _precoCtrl = TextEditingController(
       text: p?.valorPrecoVarejo != null
           ? p!.valorPrecoVarejo!.toStringAsFixed(2)
@@ -91,13 +94,13 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     _fillColor = _isDark
         ? Colors.white.withValues(alpha: 0.08)
         : Colors.black.withValues(alpha: 0.04);
-    const _radius = BorderRadius.all(Radius.circular(12));
+    const radius = BorderRadius.all(Radius.circular(12));
     _baseBorder = const OutlineInputBorder(
-      borderRadius: _radius,
+      borderRadius: radius,
       borderSide: BorderSide.none,
     );
     _focusedBorder = const OutlineInputBorder(
-      borderRadius: _radius,
+      borderRadius: radius,
       borderSide: BorderSide(color: AppColors.primary, width: 1.5),
     );
     _fieldTextStyle = GoogleFonts.inter(color: _cs.onSurface, fontSize: 14);
@@ -109,9 +112,11 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
 
   @override
   void dispose() {
+    _idCtrl.dispose();
     _tipoCtrl.dispose();
     _descricaoCtrl.dispose();
     _quantidadeCtrl.dispose();
+    _acrescentarCtrl.dispose();
     _precoCtrl.dispose();
     super.dispose();
   }
@@ -120,19 +125,28 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     if (_descricaoCtrl.text.trim().isEmpty) return null;
     if (_precoCtrl.text.trim().isEmpty) return null;
 
-    final quantidade =
-        double.tryParse(_quantidadeCtrl.text.replaceAll(',', '.')) ?? 0;
+    final idText = _idCtrl.text.trim();
+    final idProduto = idText.isEmpty ? null : int.tryParse(idText);
+    final quantidadeInicial =
+      double.tryParse(_quantidadeCtrl.text.replaceAll(',', '.')) ?? 0;
+    final acrescentar =
+        double.tryParse(_acrescentarCtrl.text.replaceAll(',', '.')) ?? 0;
     final preco = double.tryParse(_precoCtrl.text.replaceAll(',', '.'));
 
-    if (preco == null) return null;
+    if (preco == null || (idText.isNotEmpty && idProduto == null)) return null;
+
+    final quantidadeBaseEdicao = widget.produto?.quantidadeEstoque ?? 0;
+    final quantidadeFinal = _isEditing
+      ? (quantidadeBaseEdicao + (acrescentar < 0 ? 0 : acrescentar))
+      : quantidadeInicial;
 
     return ProdutoEstoque(
-      idProduto: widget.produto?.idProduto,
+      idProduto: idProduto,
       tipoProduto:
           _tipoCtrl.text.trim().isEmpty ? null : _tipoCtrl.text.trim(),
       descricao: _descricaoCtrl.text.trim(),
       embalagemSaida: _embalagemSelecionada,
-      quantidadeEstoque: quantidade < 0 ? 0 : quantidade,
+      quantidadeEstoque: quantidadeFinal < 0 ? 0 : quantidadeFinal,
       valorPrecoVarejo: preco,
     );
   }
@@ -141,8 +155,25 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     if (_descricaoCtrl.text.trim().isEmpty && _precoCtrl.text.trim().isEmpty) {
       return 'Descrição e preço são obrigatórios.';
     }
+    final idText = _idCtrl.text.trim();
+    if (idText.isNotEmpty && int.tryParse(idText) == null) {
+      return 'ID do produto inválido. Use um número inteiro.';
+    }
     if (_descricaoCtrl.text.trim().isEmpty) {
       return 'A descrição do produto é obrigatória.';
+    }
+    if (!_isEditing &&
+        double.tryParse(_quantidadeCtrl.text.replaceAll(',', '.')) == null) {
+      return 'Quantidade inválida. Use apenas números.';
+    }
+    if (_isEditing) {
+      final acrescentar = double.tryParse(_acrescentarCtrl.text.replaceAll(',', '.'));
+      if (acrescentar == null) {
+        return 'A quantidade para acrescentar é inválida.';
+      }
+      if (acrescentar < 0) {
+        return 'A quantidade para acrescentar não pode ser negativa.';
+      }
     }
     if (_precoCtrl.text.trim().isEmpty) {
       return 'O preço de venda é obrigatório.';
@@ -181,6 +212,16 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── ID do produto ─────────────────────────────────────────────
+            _field(
+              _idCtrl,
+              label: 'ID do produto',
+              helperText: 'Opcional no cadastro. Pode ser editado.',
+              prefixIcon: Icons.tag_outlined,
+              inputType: TextInputType.number,
+            ),
+            const SizedBox(height: 14),
+
             // ── Tipo ──────────────────────────────────────────────────────
             _field(
               _tipoCtrl,
@@ -215,15 +256,51 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
             ),
             const SizedBox(height: 14),
 
-            // ── Quantidade (obrigatório) ───────────────────────────────
-            _field(
-              _quantidadeCtrl,
-              label: 'Quantidade em estoque *',
-              helperText: 'Quantidade atual disponível no estoque',
-              prefixIcon: Icons.numbers_outlined,
-              inputType: const TextInputType.numberWithOptions(decimal: true),
-              isRequired: true,
-            ),
+            if (!_isEditing)
+              _field(
+                _quantidadeCtrl,
+                label: 'Quantidade inicial em estoque *',
+                helperText: 'Quantidade inicial disponível no estoque.',
+                prefixIcon: Icons.numbers_outlined,
+                inputType: const TextInputType.numberWithOptions(decimal: true),
+                isRequired: true,
+              ),
+
+            if (_isEditing) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _fillColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 18,
+                      color: _cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Estoque atual: ${widget.produto!.quantidadeEstoque.toString().replaceAll(RegExp(r'\\.0$'), '')}',
+                      style: _fieldTextStyle,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _field(
+                _acrescentarCtrl,
+                label: 'Acrescentar ao estoque *',
+                helperText:
+                    'Essa quantidade será somada ao estoque atual ao salvar.',
+                prefixIcon: Icons.add_circle_outline,
+                inputType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                isRequired: true,
+              ),
+            ],
             const SizedBox(height: 14),
 
             // ── Preço (obrigatório) ────────────────────────────────────
@@ -296,6 +373,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     IconData? prefixIcon,
     TextInputType? inputType,
     bool isRequired = false,
+    bool readOnly = false,
   }) {
     final labelColor =
         isRequired ? AppColors.primary : _cs.onSurface.withValues(alpha: 0.7);
@@ -303,6 +381,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
 
     return TextField(
       controller: ctrl,
+      readOnly: readOnly,
       keyboardType: inputType,
       // TextCapitalization.sentences is lighter than .characters on Android
       // (.characters forces every-char IME round-trip; .sentences does not)
@@ -375,7 +454,7 @@ class _EmbalagemDropdownState extends State<_EmbalagemDropdown> {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: _value,
+      initialValue: _value,
       dropdownColor: widget.isDark ? const Color(0xFF1E1E24) : Colors.white,
       iconEnabledColor: widget.cs.onSurface.withValues(alpha: 0.7),
       style: GoogleFonts.inter(color: widget.cs.onSurface, fontSize: 14),

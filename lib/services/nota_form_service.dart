@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:notas_zincao_flutter/models/nota_retirada.dart';
-import 'package:notas_zincao_flutter/supabase_config.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
+import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:path/path.dart' as p;
+import 'package:notas_zincao_flutter/models/nota_retirada.dart';
+import 'package:notas_zincao_flutter/services/storage_service.dart';
+import 'package:notas_zincao_flutter/supabase_config.dart';
 
 /// Resultado da análise do cupom pela IA.
 class CupomAnaliseResult {
@@ -62,17 +65,18 @@ class CupomAnaliseResult {
       serieNota: json['serie_nota'] as String?,
       chaveNfe: json['chave_nfe'] as String?,
       dataCompra: json['data_compra'] as String?,
-      produtos: (json['produtos'] as List<dynamic>?)
+      produtos:
+          (json['produtos'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           [],
       valorTotal: json['valor_total'] != null
           ? (json['valor_total'] as num).toDouble()
           : null,
-        valorTotalBruto: json['valor_total_bruto'] != null
+      valorTotalBruto: json['valor_total_bruto'] != null
           ? (json['valor_total_bruto'] as num).toDouble()
           : null,
-        valorTotalLiquido: json['valor_total_liquido'] != null
+      valorTotalLiquido: json['valor_total_liquido'] != null
           ? (json['valor_total_liquido'] as num).toDouble()
           : null,
       descontoTotal: json['desconto_total'] != null
@@ -95,41 +99,40 @@ class NotaFormService {
     required String numeroNota,
     String? chaveNfe,
   }) async {
-    final numeroNormalizado = numeroNota.trim();
-    final chaveNormalizada = chaveNfe?.trim();
+    final numero = numeroNota.trim();
+    final chave = chaveNfe?.trim();
 
-    if (numeroNormalizado.isEmpty && (chaveNormalizada == null || chaveNormalizada.isEmpty)) {
-      return null;
-    }
+    final temNumero = numero.isNotEmpty;
+    final temChave = chave != null && chave.isNotEmpty;
 
-    if (numeroNormalizado.isNotEmpty) {
-      final existentePorNumero = await supabase
-          .from('notas_retirada')
-          .select()
-          .eq('numero_nota', numeroNormalizado)
-          .order('criado_em', ascending: false)
-          .limit(1)
-          .maybeSingle();
+    if (!temNumero && !temChave) return null;
 
-      if (existentePorNumero != null) {
-        return NotaRetirada.fromMap(existentePorNumero);
-      }
-    }
+    final futures = await Future.wait([
+      temNumero
+          ? supabase
+              .from(DbTables.notasRetirada)
+              .select()
+              .eq(ColsNotasRetirada.numeroNota, numero)
+              .order(ColsNotasRetirada.criadoEm, ascending: false)
+              .limit(1)
+              .maybeSingle()
+          : Future<Map<String, dynamic>?>.value(null),
+      temChave
+          ? supabase
+              .from(DbTables.notasRetirada)
+              .select()
+              .eq(ColsNotasRetirada.chaveNfe, chave)
+              .order(ColsNotasRetirada.criadoEm, ascending: false)
+              .limit(1)
+              .maybeSingle()
+          : Future<Map<String, dynamic>?>.value(null),
+    ]);
 
-    if (chaveNormalizada != null && chaveNormalizada.isNotEmpty) {
-      final existentePorChave = await supabase
-          .from('notas_retirada')
-          .select()
-          .eq('chave_nfe', chaveNormalizada)
-          .order('criado_em', ascending: false)
-          .limit(1)
-          .maybeSingle();
+    final porNumero = futures[0];
+    final porChave = futures[1];
 
-      if (existentePorChave != null) {
-        return NotaRetirada.fromMap(existentePorChave);
-      }
-    }
-
+    if (porNumero != null) return NotaRetirada.fromMap(porNumero);
+    if (porChave != null) return NotaRetirada.fromMap(porChave);
     return null;
   }
 
@@ -159,32 +162,12 @@ class NotaFormService {
 
   // ─── Upload no Supabase Storage ──────────────────────────────────
 
-  /// Faz upload de uma imagem no Supabase Storage (bucket: `cupons`).
-  /// Retorna a URL pública do arquivo.
-  Future<String> uploadImage(File imageFile, String userId) async {
-    final ext = p.extension(imageFile.path).replaceFirst('.', '');
-    final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-    final storagePath = 'cupons/$fileName';
-
-    final bytes = await imageFile.readAsBytes();
-
-    await supabase.storage
-        .from('cupons')
-        .uploadBinary(storagePath, bytes, fileOptions: FileOptions(
-          contentType: 'image/$ext',
-          upsert: true,
-        ));
-
-    final publicUrl = supabase.storage
-        .from('cupons')
-        .getPublicUrl(storagePath);
-
-    return publicUrl;
-  }
+  Future<String> uploadImage(File imageFile, String userId) =>
+      StorageService.uploadImage(imageFile, userId);
 
   // ─── Análise de Cupom com OpenAI Vision ──────────────────────────
 
-  /// Envia a imagem do cupom para a OpenAI Vision (via HTTP direto) e retorna os dados extraídos.
+  /// Envia a imagem do cupom para a OpenAI Vision e retorna os dados extraídos.
   Future<CupomAnaliseResult> analyzeReceipt(File imageFile) async {
     final apiKey = dotenv.env['OPENAI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
@@ -202,7 +185,8 @@ class NotaFormService {
       'messages': [
         {
           'role': 'system',
-          'content': '''Você é um assistente especializado em extrair dados de cupons fiscais e notas fiscais brasileiras.
+          'content':
+              '''Você é um assistente especializado em extrair dados de cupons fiscais e notas fiscais brasileiras.
 Analise a imagem e extraia TODOS os dados possíveis no formato JSON abaixo (sem markdown, apenas o JSON puro):
 {
   "nome_cliente": "Nome do cliente se visível",
@@ -226,64 +210,63 @@ Analise a imagem e extraia TODOS os dados possíveis no formato JSON abaixo (sem
 "valor_total" pode repetir o valor final pago para compatibilidade, mas priorize preencher corretamente "valor_total_bruto" e "valor_total_liquido".
 "desconto_total" deve ser o valor total de descontos aplicados na nota (se houver). Se não houver desconto, use 0.
 Se algum campo não estiver visível na imagem, use null (exceto desconto_total que deve ser 0).
-IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code blocks.'''
+IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code blocks.''',
         },
         {
           'role': 'user',
           'content': [
-            {
-              'type': 'text',
-              'text': 'Analise este cupom fiscal e extraia os dados:'
-            },
+            {'type': 'text', 'text': 'Analise este cupom fiscal e extraia os dados:'},
             {
               'type': 'image_url',
-              'image_url': {
-                'url': 'data:$mimeType;base64,$base64Image',
-                'detail': 'high'
-              }
-            }
-          ]
-        }
-      ]
+              'image_url': {'url': 'data:$mimeType;base64,$base64Image', 'detail': 'high'},
+            },
+          ],
+        },
+      ],
     });
 
-    final httpClient = HttpClient();
+    final response = await http
+        .post(
+          Uri.parse('https://api.openai.com/v1/chat/completions'),
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Authorization': 'Bearer $apiKey',
+          },
+          body: body,
+        )
+        .timeout(const Duration(seconds: 60));
+
+    if (response.statusCode != 200) {
+      throw Exception('OpenAI API erro: ${response.statusCode} - ${response.body}');
+    }
+
+    final Map<String, dynamic> json = jsonDecode(response.body);
+    final choices = (json['choices'] as List?) ?? const [];
+    if (choices.isEmpty) throw Exception('AI não retornou resposta');
+
+    var jsonText = (choices[0]['message']['content'] as String)
+        .replaceAll(RegExp(r'```json\s*'), '')
+        .replaceAll(RegExp(r'```\s*'), '')
+        .trim();
+
+    return CupomAnaliseResult.fromJson(jsonDecode(jsonText));
+  }
+
+  // ─── CRM ─────────────────────────────────────────────────────────
+
+  /// Cria ou atualiza o contato no CRM (upsert atômico por contato_id).
+  Future<void> upsertCrmContact({
+    required String telefone,
+    required String nome,
+  }) async {
+    if (telefone.isEmpty || nome.isEmpty) return;
     try {
-      final request = await httpClient.postUrl(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
+      await supabase.from(DbTables.crmZincao).upsert(
+        {ColsCrmZincao.contatoId: telefone, ColsCrmZincao.nome: nome},
+        onConflict: ColsCrmZincao.contatoId,
       );
-      final utf8Body = utf8.encode(body);
-      request.headers.set('Content-Type', 'application/json; charset=utf-8');
-      request.headers.set('Authorization', 'Bearer $apiKey');
-      request.contentLength = utf8Body.length;
-      request.add(utf8Body);
-
-      final response = await request.close();
-      final responseBody = await response.transform(utf8.decoder).join();
-
-      if (response.statusCode != 200) {
-        throw Exception('OpenAI API erro: ${response.statusCode} - $responseBody');
-      }
-
-      final Map<String, dynamic> json = jsonDecode(responseBody);
-      final choices = json['choices'] as List;
-      if (choices.isEmpty) {
-        throw Exception('AI não retornou resposta');
-      }
-
-      String jsonText = choices[0]['message']['content'] as String;
-
-      // Remove possíveis markdown code blocks
-      jsonText = jsonText.replaceAll(RegExp(r'```json\s*'), '');
-      jsonText = jsonText.replaceAll(RegExp(r'```\s*'), '');
-      jsonText = jsonText.trim();
-
-      final Map<String, dynamic> parsed = jsonDecode(jsonText);
-      return CupomAnaliseResult.fromJson(parsed);
     } catch (e) {
-      rethrow;
-    } finally {
-      httpClient.close();
+      debugPrint('Erro ao sincronizar com CRM: $e');
     }
   }
 
@@ -308,22 +291,25 @@ IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code b
     String? contatoId,
   }) async {
     final data = {
-      'owner_user_id': ownerUserId,
-      'nome_cliente': nomeCliente,
-      'numero_nota': numeroNota,
-      'data_compra': dataCompra.toIso8601String().split('T').first,
-      'foto_url': fotoUrl,
-      'documento_cliente': documentoCliente,
-      'telefone_cliente': telefoneCliente,
-      'serie_nota': serieNota,
-      'chave_nfe': chaveNfe,
-      'data_prevista_retirada': dataPrevistaRetirada?.toIso8601String().split('T').first,
-      'produtos': produtos,
-      'valor_total': valorTotal,
-      'desconto_total': descontoTotal,
-      'observacoes': observacoes,
-      'status_retirada': 'pendente',
-      'contato_id': contatoId,
+      ColsNotasRetirada.ownerUserId: ownerUserId,
+      ColsNotasRetirada.nomeCliente: nomeCliente,
+      ColsNotasRetirada.numeroNota: numeroNota,
+      ColsNotasRetirada.dataCompra: dataCompra.toIso8601String().split('T').first,
+      ColsNotasRetirada.fotoUrl: fotoUrl,
+      ColsNotasRetirada.documentoCliente: documentoCliente,
+      ColsNotasRetirada.telefoneCliente: telefoneCliente,
+      ColsNotasRetirada.serieNota: serieNota,
+      ColsNotasRetirada.chaveNfe: chaveNfe,
+      ColsNotasRetirada.dataPrevistaRetirada: dataPrevistaRetirada
+          ?.toIso8601String()
+          .split('T')
+          .first,
+      ColsNotasRetirada.produtos: produtos,
+      ColsNotasRetirada.valorTotal: valorTotal,
+      ColsNotasRetirada.descontoTotal: descontoTotal,
+      ColsNotasRetirada.observacoes: observacoes,
+      ColsNotasRetirada.statusRetirada: 'pendente',
+      ColsNotasRetirada.contatoId: contatoId,
     };
 
     // Remove null values para usar defaults do banco
@@ -333,12 +319,12 @@ IMPORTANTE: Retorne APENAS o JSON, sem nenhum texto adicional ou markdown code b
 
     try {
       final response = await supabase
-          .from('notas_retirada')
+          .from(DbTables.notasRetirada)
           .insert(data)
           .select()
           .single();
 
-      debugPrint('✅ [createNota] Nota salva com sucesso: ${response['id']}');
+      debugPrint('✅ [createNota] Nota salva com sucesso: ${response[ColsNotasRetirada.id]}');
       return NotaRetirada.fromMap(response);
     } catch (e, st) {
       debugPrint('❌ [createNota] Erro ao inserir no Supabase: $e');

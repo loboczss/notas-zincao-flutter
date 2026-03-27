@@ -22,6 +22,17 @@ class ProductStockHeaderViewModel extends ChangeNotifier {
 
   double get stockAmount => _product?.quantidadeEstoque ?? 0;
 
+  /// Registra um listener e retorna uma funcao para cleanup.
+  ///
+  /// Como este ViewModel e singleton, nao ha `dispose` automatico por rota.
+  /// Use o callback retornado dentro do `dispose()` do widget consumidor.
+  VoidCallback bindListener(VoidCallback listener) {
+    addListener(listener);
+    return () {
+      removeListener(listener);
+    };
+  }
+
   Future<void> refreshStock() async {
     _isLoading = true;
     _error = null;

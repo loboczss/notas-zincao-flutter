@@ -1,3 +1,5 @@
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
+import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/supabase_config.dart';
 
@@ -13,15 +15,27 @@ class EstoqueProdutoService {
 
   Future<ProdutoEstoque?> fetchById(int idProduto) async {
     final resultados = await supabase
-        .from('bd_estoque_geral')
+        .from(DbTables.estoqueGeral)
         .select()
-        .eq('IDPRODUTO', idProduto)
+        .eq(ColsEstoqueGeral.idProduto, idProduto)
         .limit(1);
 
     if (resultados.isEmpty) return null;
     return ProdutoEstoque.fromMap(
       Map<String, dynamic>.from(resultados.first as Map),
     );
+  }
+
+  /// Busca múltiplos produtos por ID em uma única query.
+  Future<List<ProdutoEstoque>> fetchByIds(List<int> ids) async {
+    if (ids.isEmpty) return [];
+    final raw = await supabase
+        .from(DbTables.estoqueGeral)
+        .select()
+        .inFilter(ColsEstoqueGeral.idProduto, ids);
+    return (raw as List)
+        .map((row) => ProdutoEstoque.fromMap(Map<String, dynamic>.from(row as Map)))
+        .toList();
   }
 
   // ─── Paginação server-side (usada pela tela de estoque) ───────────────────
@@ -38,9 +52,9 @@ class EstoqueProdutoService {
 
     if (q.isEmpty) {
       final raw = await supabase
-          .from('bd_estoque_geral')
+          .from(DbTables.estoqueGeral)
           .select()
-          .order('DESCRICAO', ascending: true)
+          .order(ColsEstoqueGeral.descricao, ascending: true)
           .range(offset, offset + limite - 1);
 
       return raw
@@ -51,10 +65,10 @@ class EstoqueProdutoService {
     final idQ = int.tryParse(q);
     if (idQ != null) {
       final raw = await supabase
-          .from('bd_estoque_geral')
+          .from(DbTables.estoqueGeral)
           .select()
-          .eq('IDPRODUTO', idQ)
-          .order('DESCRICAO', ascending: true)
+          .eq(ColsEstoqueGeral.idProduto, idQ)
+          .order(ColsEstoqueGeral.descricao, ascending: true)
           .range(offset, offset + limite - 1);
 
       return raw
@@ -63,22 +77,20 @@ class EstoqueProdutoService {
     }
 
     final searchText = _sanitizeSearchText(q);
-    if (searchText.isEmpty) {
-      return const [];
-    }
+    if (searchText.isEmpty) return const [];
 
     final descricaoRaw = await supabase
-        .from('bd_estoque_geral')
+        .from(DbTables.estoqueGeral)
         .select()
-        .ilike('DESCRICAO', '%$searchText%')
-        .order('DESCRICAO', ascending: true)
+        .ilike(ColsEstoqueGeral.descricao, '%$searchText%')
+        .order(ColsEstoqueGeral.descricao, ascending: true)
         .limit(limite);
 
     final tipoProdutoRaw = await supabase
-        .from('bd_estoque_geral')
+        .from(DbTables.estoqueGeral)
         .select()
-        .ilike('TIPOPRODUTO', '%$searchText%')
-        .order('DESCRICAO', ascending: true)
+        .ilike(ColsEstoqueGeral.tipoProduto, '%$searchText%')
+        .order(ColsEstoqueGeral.descricao, ascending: true)
         .limit(limite);
 
     final agregados = <ProdutoEstoque>[];
@@ -89,9 +101,7 @@ class EstoqueProdutoService {
       if (ids.add(produto.idProduto)) {
         agregados.add(produto);
       }
-      if (agregados.length >= limite) {
-        break;
-      }
+      if (agregados.length >= limite) break;
     }
 
     return agregados;
@@ -113,9 +123,9 @@ class EstoqueProdutoService {
 
     while (true) {
       final pagina = await supabase
-          .from('bd_estoque_geral')
+          .from(DbTables.estoqueGeral)
           .select()
-          .order('DESCRICAO', ascending: true)
+          .order(ColsEstoqueGeral.descricao, ascending: true)
           .range(offset, offset + _pageSize - 1);
 
       final lista = pagina as List;
@@ -132,7 +142,7 @@ class EstoqueProdutoService {
 
   Future<ProdutoEstoque> createProduto(ProdutoEstoque produto) async {
     final inserted = await supabase
-        .from('bd_estoque_geral')
+        .from(DbTables.estoqueGeral)
         .insert(produto.toMap())
         .select()
         .single();
@@ -140,23 +150,27 @@ class EstoqueProdutoService {
     return ProdutoEstoque.fromMap(inserted);
   }
 
-  Future<ProdutoEstoque> updateProduto(ProdutoEstoque produto) async {
-    if (produto.idProduto != null) {
+  Future<ProdutoEstoque> updateProduto(
+    ProdutoEstoque produto, {
+    int? idProdutoReferencia,
+  }) async {
+    final idRef = idProdutoReferencia ?? produto.idProduto;
+    if (idRef != null) {
       final updated = await supabase
-          .from('bd_estoque_geral')
+          .from(DbTables.estoqueGeral)
           .update(produto.toMap())
-          .eq('IDPRODUTO', produto.idProduto as Object)
+          .eq(ColsEstoqueGeral.idProduto, idRef)
           .select()
           .single();
       return ProdutoEstoque.fromMap(updated);
     }
 
     final updated = await supabase
-        .from('bd_estoque_geral')
+        .from(DbTables.estoqueGeral)
         .update(produto.toMap())
-        .eq('DESCRICAO', produto.descricao)
-        .eq('EMBALAGEMSAIDA', produto.embalagemSaida)
-        .eq('TIPOPRODUTO', produto.tipoProduto ?? '')
+        .eq(ColsEstoqueGeral.descricao, produto.descricao)
+        .eq(ColsEstoqueGeral.embalagemSaida, produto.embalagemSaida)
+        .eq(ColsEstoqueGeral.tipoProduto, produto.tipoProduto ?? '')
         .select()
         .single();
     return ProdutoEstoque.fromMap(updated);
@@ -166,15 +180,15 @@ class EstoqueProdutoService {
     if (idsProdutos.isEmpty) return {};
 
     final response = await supabase
-        .from('bd_estoque_geral')
-        .select('IDPRODUTO, QUANTIDADEESTOQUE')
-        .inFilter('IDPRODUTO', idsProdutos);
+        .from(DbTables.estoqueGeral)
+        .select('${ColsEstoqueGeral.idProduto}, ${ColsEstoqueGeral.quantidadeEstoque}')
+        .inFilter(ColsEstoqueGeral.idProduto, idsProdutos);
 
     final result = <int, double>{};
     for (final row in response as List) {
       final data = Map<String, dynamic>.from(row as Map);
-      final id = data['IDPRODUTO'];
-      final qtdRaw = data['QUANTIDADEESTOQUE'];
+      final id = data[ColsEstoqueGeral.idProduto];
+      final qtdRaw = data[ColsEstoqueGeral.quantidadeEstoque];
       if (id is int) {
         final qtd = qtdRaw is num
             ? qtdRaw.toDouble()
@@ -191,7 +205,7 @@ class EstoqueProdutoService {
   }) async {
     try {
       final rpcResult = await supabase.rpc(
-        'baixar_estoque_produto',
+        RpcFunctions.baixarEstoqueProduto,
         params: {
           'p_id_produto': idProduto,
           'p_quantidade_solicitada': quantidadeSolicitada,
@@ -207,16 +221,14 @@ class EstoqueProdutoService {
     } catch (_) {}
 
     final registro = await supabase
-        .from('bd_estoque_geral')
-        .select('QUANTIDADEESTOQUE')
-        .eq('IDPRODUTO', idProduto)
+        .from(DbTables.estoqueGeral)
+        .select(ColsEstoqueGeral.quantidadeEstoque)
+        .eq(ColsEstoqueGeral.idProduto, idProduto)
         .maybeSingle();
 
-    if (registro == null) {
-      return 0;
-    }
+    if (registro == null) return 0;
 
-    final qtdAtualRaw = registro['QUANTIDADEESTOQUE'];
+    final qtdAtualRaw = registro[ColsEstoqueGeral.quantidadeEstoque];
     final qtdAtual = qtdAtualRaw is num
         ? qtdAtualRaw.toDouble()
         : double.tryParse((qtdAtualRaw ?? '0').toString().replaceAll(',', '.')) ?? 0;
@@ -225,9 +237,9 @@ class EstoqueProdutoService {
     final novoSaldo = qtdAtual - qtdRetirada;
 
     await supabase
-        .from('bd_estoque_geral')
-        .update({'QUANTIDADEESTOQUE': novoSaldo})
-        .eq('IDPRODUTO', idProduto);
+        .from(DbTables.estoqueGeral)
+        .update({ColsEstoqueGeral.quantidadeEstoque: novoSaldo})
+        .eq(ColsEstoqueGeral.idProduto, idProduto);
 
     return qtdRetirada;
   }

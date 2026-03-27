@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
 /// Status possíveis para a retirada.
@@ -91,57 +92,57 @@ class NotaRetirada {
 
   factory NotaRetirada.fromMap(Map<String, dynamic> map) {
     return NotaRetirada(
-      id: map['id'] as String,
-      ownerUserId: map['owner_user_id'] as String,
-      fotoUrl: map['foto_url'] as String?,
-      nomeCliente: map['nome_cliente'] as String,
-      documentoCliente: map['documento_cliente'] as String?,
-      telefoneCliente: map['telefone_cliente'] as String?,
-      numeroNota: map['numero_nota'] as String,
-      serieNota: map['serie_nota'] as String,
-      chaveNfe: map['chave_nfe'] as String?,
-      dataCompra: DateTime.parse(map['data_compra'] as String),
-      dataPrevistaRetirada: map['data_prevista_retirada'] != null 
-          ? DateTime.parse(map['data_prevista_retirada'] as String) 
+      id: map[ColsNotasRetirada.id] as String,
+      ownerUserId: map[ColsNotasRetirada.ownerUserId] as String,
+      fotoUrl: map[ColsNotasRetirada.fotoUrl] as String?,
+      nomeCliente: map[ColsNotasRetirada.nomeCliente] as String,
+      documentoCliente: map[ColsNotasRetirada.documentoCliente] as String?,
+      telefoneCliente: map[ColsNotasRetirada.telefoneCliente] as String?,
+      numeroNota: map[ColsNotasRetirada.numeroNota] as String,
+      serieNota: map[ColsNotasRetirada.serieNota] as String,
+      chaveNfe: map[ColsNotasRetirada.chaveNfe] as String?,
+      dataCompra: DateTime.parse(map[ColsNotasRetirada.dataCompra] as String),
+      dataPrevistaRetirada: map[ColsNotasRetirada.dataPrevistaRetirada] != null
+          ? DateTime.parse(map[ColsNotasRetirada.dataPrevistaRetirada] as String)
           : null,
-      produtos: map['produtos'] as List<dynamic>,
-      historicoRetiradas: map['historico_retiradas'] as List<dynamic>?,
-      valorTotal: map['valor_total'] != null ? (map['valor_total'] as num).toDouble() : null,
-      descontoTotal: map['desconto_total'] != null ? (map['desconto_total'] as num).toDouble() : null,
-      observacoes: map['observacoes'] as String?,
-      statusRetirada: StatusRetirada.fromString(map['status_retirada'] as String),
-      dataRetirada: map['data_retirada'] != null 
-          ? DateTime.parse(map['data_retirada'] as String) 
+      produtos: (map[ColsNotasRetirada.produtos] as List<dynamic>?) ?? const [],
+      historicoRetiradas: map[ColsNotasRetirada.historicoRetiradas] as List<dynamic>?,
+      valorTotal: map[ColsNotasRetirada.valorTotal] != null ? (map[ColsNotasRetirada.valorTotal] as num).toDouble() : null,
+      descontoTotal: map[ColsNotasRetirada.descontoTotal] != null ? (map[ColsNotasRetirada.descontoTotal] as num).toDouble() : null,
+      observacoes: map[ColsNotasRetirada.observacoes] as String?,
+      statusRetirada: StatusRetirada.fromString(map[ColsNotasRetirada.statusRetirada] as String),
+      dataRetirada: map[ColsNotasRetirada.dataRetirada] != null
+          ? DateTime.parse(map[ColsNotasRetirada.dataRetirada] as String)
           : null,
-      retiradaConfirmadaPor: map['retirada_confirmada_por'] as String?,
-      comprovanteRetiradaUrl: map['comprovante_retirada_url'] as String?,
-      criadoEm: DateTime.parse(map['criado_em'] as String),
+      retiradaConfirmadaPor: map[ColsNotasRetirada.retiradaConfirmadaPor] as String?,
+      comprovanteRetiradaUrl: map[ColsNotasRetirada.comprovanteRetiradaUrl] as String?,
+      criadoEm: DateTime.parse(map[ColsNotasRetirada.criadoEm] as String),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'owner_user_id': ownerUserId,
-      'foto_url': fotoUrl,
-      'nome_cliente': nomeCliente,
-      'documento_cliente': documentoCliente,
-      'telefone_cliente': telefoneCliente,
-      'numero_nota': numeroNota,
-      'serie_nota': serieNota,
-      'chave_nfe': chaveNfe,
-      'data_compra': dataCompra.toIso8601String(),
-      'data_prevista_retirada': dataPrevistaRetirada?.toIso8601String(),
-      'produtos': produtos,
-      'historico_retiradas': historicoRetiradas,
-      'valor_total': valorTotal,
-      'desconto_total': descontoTotal,
-      'observacoes': observacoes,
-      'status_retirada': statusRetirada.name,
-      'data_retirada': dataRetirada?.toIso8601String(),
-      'retirada_confirmada_por': retiradaConfirmadaPor,
-      'comprovante_retirada_url': comprovanteRetiradaUrl,
-      'criado_em': criadoEm.toIso8601String(),
+      ColsNotasRetirada.id: id,
+      ColsNotasRetirada.ownerUserId: ownerUserId,
+      ColsNotasRetirada.fotoUrl: fotoUrl,
+      ColsNotasRetirada.nomeCliente: nomeCliente,
+      ColsNotasRetirada.documentoCliente: documentoCliente,
+      ColsNotasRetirada.telefoneCliente: telefoneCliente,
+      ColsNotasRetirada.numeroNota: numeroNota,
+      ColsNotasRetirada.serieNota: serieNota,
+      ColsNotasRetirada.chaveNfe: chaveNfe,
+      ColsNotasRetirada.dataCompra: dataCompra.toIso8601String(),
+      ColsNotasRetirada.dataPrevistaRetirada: dataPrevistaRetirada?.toIso8601String(),
+      ColsNotasRetirada.produtos: produtos,
+      ColsNotasRetirada.historicoRetiradas: historicoRetiradas,
+      ColsNotasRetirada.valorTotal: valorTotal,
+      ColsNotasRetirada.descontoTotal: descontoTotal,
+      ColsNotasRetirada.observacoes: observacoes,
+      ColsNotasRetirada.statusRetirada: statusRetirada.name,
+      ColsNotasRetirada.dataRetirada: dataRetirada?.toIso8601String(),
+      ColsNotasRetirada.retiradaConfirmadaPor: retiradaConfirmadaPor,
+      ColsNotasRetirada.comprovanteRetiradaUrl: comprovanteRetiradaUrl,
+      ColsNotasRetirada.criadoEm: criadoEm.toIso8601String(),
     };
   }
 

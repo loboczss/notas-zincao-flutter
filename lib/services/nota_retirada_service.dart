@@ -1,3 +1,5 @@
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
+import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/models/profile.dart';
 import 'package:notas_zincao_flutter/supabase_config.dart';
@@ -8,14 +10,14 @@ class NotaRetiradaService {
     try {
       if (profile == null) return [];
 
-      var query = supabase.from('notas_retirada').select();
+      var query = supabase.from(DbTables.notasRetirada).select();
 
       // Se não for admin e não for colaborador, visualiza apenas as notas criadas por ele
       if (profile.role != 'admin' && profile.role != 'colaborador') {
-        query = query.eq('owner_user_id', profile.authUid);
+        query = query.eq(ColsNotasRetirada.ownerUserId, profile.authUid);
       }
 
-      final response = await query.order('data_compra', ascending: false);
+      final response = await query.order(ColsNotasRetirada.dataCompra, ascending: false);
       
       return (response as List)
           .map((data) => NotaRetirada.fromMap(data as Map<String, dynamic>))
@@ -29,9 +31,9 @@ class NotaRetiradaService {
   Future<NotaRetirada?> getById(String id) async {
     try {
       final response = await supabase
-          .from('notas_retirada')
+          .from(DbTables.notasRetirada)
           .select()
-          .eq('id', id)
+          .eq(ColsNotasRetirada.id, id)
           .single();
       
       return NotaRetirada.fromMap(response);
@@ -43,7 +45,7 @@ class NotaRetiradaService {
   /// Inserta uma nova nota.
   Future<void> create(NotaRetirada nota) async {
     try {
-      await supabase.from('notas_retirada').insert(nota.toMap());
+      await supabase.from(DbTables.notasRetirada).insert(nota.toMap());
     } catch (e) {
       rethrow;
     }
@@ -53,9 +55,9 @@ class NotaRetiradaService {
   Future<void> update(NotaRetirada nota) async {
     try {
       await supabase
-          .from('notas_retirada')
+          .from(DbTables.notasRetirada)
           .update(nota.toMap())
-          .eq('id', nota.id);
+          .eq(ColsNotasRetirada.id, nota.id);
     } catch (e) {
       rethrow;
     }
@@ -64,7 +66,7 @@ class NotaRetiradaService {
   /// Exclui uma nota.
   Future<void> delete(String id) async {
     try {
-      await supabase.from('notas_retirada').delete().eq('id', id);
+      await supabase.from(DbTables.notasRetirada).delete().eq(ColsNotasRetirada.id, id);
     } catch (e) {
       rethrow;
     }
@@ -74,9 +76,9 @@ class NotaRetiradaService {
   Future<void> cancel(String id) async {
     try {
       await supabase
-          .from('notas_retirada')
-          .update({'status_retirada': 'cancelada'})
-          .eq('id', id);
+          .from(DbTables.notasRetirada)
+          .update({ColsNotasRetirada.statusRetirada: 'cancelada'})
+          .eq(ColsNotasRetirada.id, id);
     } catch (e) {
       rethrow;
     }

@@ -25,7 +25,7 @@ class _NotasRetiradaScreenState extends State<NotasRetiradaScreen> {
   String _searchQuery = '';
   StatusRetirada? _selectedStatus;
   bool _isLoading = true;
-  bool _isTableView = true;
+  bool _isTableView = false;
 
   @override
   void initState() {
@@ -37,18 +37,18 @@ class _NotasRetiradaScreenState extends State<NotasRetiradaScreen> {
     setState(() => _isLoading = true);
     try {
       final notas = await _service.fetchAll(widget.authViewModel.profile);
+      if (!mounted) return;
       setState(() {
         _notas = notas;
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        AppErrorFeedback.show(
-          context,
-          error: e,
-          fallbackMessage: 'Não foi possível carregar suas notas.',
-        );
-      }
+      if (!mounted) return;
+      AppErrorFeedback.show(
+        context,
+        error: e,
+        fallbackMessage: 'Não foi possível carregar suas notas.',
+      );
       setState(() => _isLoading = false);
     }
   }

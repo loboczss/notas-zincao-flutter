@@ -104,7 +104,10 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
 
     try {
       if (produto != null) {
-        await _viewModel.editarProduto(resultado);
+        await _viewModel.editarProduto(
+          resultado,
+          idProdutoOriginal: produto.idProduto,
+        );
       } else {
         await _viewModel.criarProduto(resultado);
       }

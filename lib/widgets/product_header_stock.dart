@@ -26,52 +26,165 @@ class _ProductHeaderStockState extends State<ProductHeaderStock> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, _) {
         if (_viewModel.isLoading && _viewModel.product == null) {
-          return const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          return const Center(
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           );
         }
 
-        if (_viewModel.error != null && _viewModel.product == null) {
-          return const SizedBox.shrink();
-        }
+        final product = _viewModel.product;
+        if (product == null) return const SizedBox.shrink();
 
         final amount = _viewModel.stockAmount;
-        final product = _viewModel.product;
-        final unit = product?.embalagemSaida ?? 'M²';
+        final unit = product.embalagemSaida;
+        final name = product.descricao;
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: colorScheme.secondaryContainer.withOpacity(0.5),
-              width: 1,
+            gradient: LinearGradient(
+              colors: isDark 
+                  ? [
+                      colorScheme.primary.withValues(alpha: 0.15), 
+                      colorScheme.primary.withValues(alpha: 0.05)
+                    ]
+                  : [
+                      colorScheme.primary.withValues(alpha: 0.1), 
+                      colorScheme.primary.withValues(alpha: 0.02)
+                    ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.2),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.inventory_2_outlined,
-                size: 14,
-                color: colorScheme.onSecondaryContainer,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Saldo: $amount $unit',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSecondaryContainer,
-                  letterSpacing: 0.5,
+              // Ícone Estilizado
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.2),
+                  ),
                 ),
+                child: Icon(
+                  Icons.inventory_2_rounded,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              
+              // Informações do Produto
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'PRODUTO EM DESTAQUE',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.primary.withValues(alpha: 0.8),
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      name,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        color: colorScheme.onSurface,
+                        letterSpacing: 0.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Divisor vertical sutil
+              Container(
+                height: 28,
+                width: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary.withValues(alpha: 0),
+                      colorScheme.primary.withValues(alpha: 0.3),
+                      colorScheme.primary.withValues(alpha: 0),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+
+              // Container do Saldo
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'DISPONÍVEL',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface.withValues(alpha: 0.4),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        amount.toString().replaceAll(RegExp(r'\.0$'), ''),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: colorScheme.primary,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        unit.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.primary.withValues(alpha: 0.7),
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

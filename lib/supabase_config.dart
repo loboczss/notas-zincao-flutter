@@ -11,12 +11,16 @@ Future<void> initializeSupabase() async {
   final url = dotenv.env['SUPABASE_URL'];
   final anonKey = dotenv.env['SUPABASE_ANON_KEY'];
 
-  assert(url != null && url.isNotEmpty, 'SUPABASE_URL não encontrado no .env');
-  assert(anonKey != null && anonKey.isNotEmpty, 'SUPABASE_ANON_KEY não encontrado no .env');
+  if (url == null || url.isEmpty) {
+    throw StateError('SUPABASE_URL nao encontrado no .env');
+  }
+  if (anonKey == null || anonKey.isEmpty) {
+    throw StateError('SUPABASE_ANON_KEY nao encontrado no .env');
+  }
 
   await Supabase.initialize(
-    url: url!,
-    anonKey: anonKey!,
+    url: url,
+    anonKey: anonKey,
     debug: false, // mude para true durante desenvolvimento se precisar
   );
 }

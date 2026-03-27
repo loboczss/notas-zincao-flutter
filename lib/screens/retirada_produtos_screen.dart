@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
@@ -191,7 +192,18 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                 : colorScheme.onSurfaceVariant,
             onPressed: isLoading
                 ? null
-                : () => _viewModel.confirmarRetirada(widget.authViewModel.profile!.id),
+                : () {
+                    final userId = widget.authViewModel.profile?.id;
+                    if (userId == null) {
+                      AppErrorFeedback.show(
+                        context,
+                        message: 'Usuário não autenticado.',
+                        fallbackMessage: 'Sua sessão expirou. Faça login novamente.',
+                      );
+                      return;
+                    }
+                    _viewModel.confirmarRetirada(userId);
+                  },
             label: Text(
               'Confirmar Retirada',
               style: GoogleFonts.inter(fontWeight: FontWeight.bold),
@@ -213,14 +225,16 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
   }
 
   Widget _buildProductItem(int index) {
-    final p = widget.nota.produtos[index] as Map<String, dynamic>;
-    final nome = p['nome'] ?? 'Produto';
-    final tipoUnidade = p['tipo_unidade'] ?? 'UN';
-    
-    double qtdOriginal = double.tryParse(p['quantidade']?.toString() ?? '1') ?? 1.0;
+    final raw = widget.nota.produtos[index];
+    if (raw is! Map) return const SizedBox.shrink();
+    final p = Map<String, dynamic>.from(raw);
+    final nome = p[ColsProdutoNota.nome] ?? 'Produto';
+    final tipoUnidade = p[ColsProdutoNota.tipoUnidade] ?? 'UN';
+
+    double qtdOriginal = double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
     if (qtdOriginal <= 0) qtdOriginal = 1.0;
 
-    final double qtdJaRetirada = double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
+    final double qtdJaRetirada = double.tryParse(p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ?? 0.0;
     final maxRetiravel = _viewModel.getQuantidadeMaxima(index);
     final isCompletamenteRetirado = _viewModel.isProdutoEntregue(index);
     final isSemEstoque = _viewModel.isSemEstoqueDisponivel(index);

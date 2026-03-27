@@ -16,7 +16,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(74);
+  Size get preferredSize => const Size.fromHeight(135);
 
   @override
   Widget build(BuildContext context) {
@@ -36,38 +36,48 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Flexible(child: HeaderLogo()),
-              const ProductHeaderStock(),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+        child: Column(
+          children: [
+            // ── Tier 1: Logo + User Info ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
-                    tooltip: 'Alternar tema',
-                    onPressed: ThemeController.instance.toggleTheme,
-                    icon: Icon(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? Icons.light_mode_rounded
-                          : Icons.dark_mode_rounded,
-                      size: 22,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  HeaderUserInfo(
-                    nome: profile?.nome,
-                    role: profile?.role,
-                    fotoUrl: profile?.fotoPerfil,
-                    onLogout: () => authViewModel.signOut(),
+                  const Flexible(child: HeaderLogo()),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Alternar tema',
+                        onPressed: ThemeController.instance.toggleTheme,
+                        icon: Icon(
+                          Theme.of(context).brightness == Brightness.dark
+                              ? Icons.light_mode_rounded
+                              : Icons.dark_mode_rounded,
+                          size: 22,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      HeaderUserInfo(
+                        nome: profile?.nome,
+                        role: profile?.role,
+                        fotoUrl: profile?.fotoPerfil,
+                        onLogout: () => authViewModel.signOut(),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            
+            // ── Tier 2: Product Stock Highlight ──
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: ProductHeaderStock(),
+            ),
+          ],
         ),
       ),
     );

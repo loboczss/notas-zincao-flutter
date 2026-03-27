@@ -1,3 +1,5 @@
+import 'package:notas_zincao_flutter/utils/parse_utils.dart' as parse;
+
 class ProdutoEstoque {
   final int? idProduto;
   final String descricao;
@@ -16,21 +18,15 @@ class ProdutoEstoque {
   });
 
   factory ProdutoEstoque.fromMap(Map<String, dynamic> map) {
-    double parseDouble(dynamic value, {double fallback = 0}) {
-      if (value == null) return fallback;
-      if (value is num) return value.toDouble();
-      return double.tryParse(value.toString().replaceAll(',', '.')) ?? fallback;
-    }
-
     return ProdutoEstoque(
       idProduto: (map['IDPRODUTO'] ?? map['idproduto']) as int?,
       descricao: (map['DESCRICAO'] ?? map['descricao'] ?? '').toString(),
       embalagemSaida: (map['EMBALAGEMSAIDA'] ?? map['embalagamsaida'] ?? map['embalagemsaida'] ?? map['embalagem'] ?? 'UN').toString(),
       tipoProduto: (map['TIPOPRODUTO'] ?? map['tipoproduto'])?.toString(),
-      quantidadeEstoque: parseDouble(map['QUANTIDADEESTOQUE'] ?? map['quantidadeestoque']),
+      quantidadeEstoque: parse.parseDouble(map['QUANTIDADEESTOQUE'] ?? map['quantidadeestoque']),
       valorPrecoVarejo: map['VALPRECOVAREJO'] != null
-          ? parseDouble(map['VALPRECOVAREJO'])
-          : (map['valprecovarejo'] != null ? parseDouble(map['valprecovarejo']) : null),
+          ? parse.parseDouble(map['VALPRECOVAREJO'])
+          : (map['valprecovarejo'] != null ? parse.parseDouble(map['valprecovarejo']) : null),
     );
   }
 

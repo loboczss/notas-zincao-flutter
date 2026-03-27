@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
+import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/supabase_config.dart';
@@ -198,13 +200,27 @@ class _NotaTextFieldState extends State<NotaTextField>
 }
 
 /// Seção de campos do formulário agrupados.
-class NotaFormFields extends StatelessWidget {
+class NotaFormFields extends StatefulWidget {
   final NotaFormViewModel viewModel;
 
   const NotaFormFields({super.key, required this.viewModel});
 
   @override
+  State<NotaFormFields> createState() => _NotaFormFieldsState();
+}
+
+class _NotaFormFieldsState extends State<NotaFormFields> {
+  final FocusNode _nomeClienteFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _nomeClienteFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final viewModel = widget.viewModel;
     final missing = viewModel.missingFields;
     final cs = Theme.of(context).colorScheme;
 
@@ -216,26 +232,26 @@ class NotaFormFields extends StatelessWidget {
         const SizedBox(height: 12),
         RawAutocomplete<Map<String, dynamic>>(
           textEditingController: viewModel.nomeClienteCtrl,
-          focusNode: FocusNode(),
+          focusNode: _nomeClienteFocusNode,
           optionsBuilder: (TextEditingValue textEditingValue) async {
             if (textEditingValue.text.length < 3) {
               return const Iterable<Map<String, dynamic>>.empty();
             }
             try {
               final res = await supabase
-                  .from('crm_zincao')
-                  .select('contato_id, nome')
-                  .ilike('nome', '%${textEditingValue.text}%')
+                  .from(DbTables.crmZincao)
+                  .select('${ColsCrmZincao.contatoId}, ${ColsCrmZincao.nome}')
+                  .ilike(ColsCrmZincao.nome, '%${textEditingValue.text}%')
                   .limit(5);
               return List<Map<String, dynamic>>.from(res);
             } catch (_) {
               return const Iterable<Map<String, dynamic>>.empty();
             }
           },
-          displayStringForOption: (option) => option['nome'] as String? ?? '',
+          displayStringForOption: (option) => option[ColsCrmZincao.nome] as String? ?? '',
           onSelected: (option) {
-            viewModel.nomeClienteCtrl.text = option['nome'] as String? ?? '';
-            viewModel.telefoneClienteCtrl.text = option['contato_id'] as String? ?? '';
+            viewModel.nomeClienteCtrl.text = option[ColsCrmZincao.nome] as String? ?? '';
+            viewModel.telefoneClienteCtrl.text = option[ColsCrmZincao.contatoId] as String? ?? '';
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
             return NotaTextField(
@@ -265,8 +281,8 @@ class NotaFormFields extends StatelessWidget {
                       final option = options.elementAt(index);
                       return ListTile(
                         leading: const Icon(Icons.person, color: AppColors.primary),
-                        title: Text(option['nome'] ?? 'Sem Nome', style: GoogleFonts.inter(color: cs.onSurface, fontWeight: FontWeight.w500)),
-                        subtitle: Text(option['contato_id'] ?? '', style: GoogleFonts.inter(color: cs.onSurfaceVariant, fontSize: 13)),
+                        title: Text(option[ColsCrmZincao.nome] ?? 'Sem Nome', style: GoogleFonts.inter(color: cs.onSurface, fontWeight: FontWeight.w500)),
+                        subtitle: Text(option[ColsCrmZincao.contatoId] ?? '', style: GoogleFonts.inter(color: cs.onSurfaceVariant, fontSize: 13)),
                         onTap: () => onSelected(option),
                       );
                     },

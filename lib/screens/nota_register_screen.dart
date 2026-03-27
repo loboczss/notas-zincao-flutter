@@ -24,6 +24,8 @@ class NotaRegisterScreen extends StatefulWidget {
 class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
   final NotaFormViewModel _viewModel = NotaFormViewModel();
   bool _isDuplicateDialogOpen = false;
+  bool _isSuccessDialogOpen = false;
+  bool _isHandlingSuccessAction = false;
 
   @override
   void initState() {
@@ -55,7 +57,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
     }
 
     // Exibe sucesso
-    if (_viewModel.status == NotaFormStatus.success) {
+    if (_viewModel.status == NotaFormStatus.success && !_isSuccessDialogOpen) {
       _showSuccessDialog();
     }
   }
@@ -256,6 +258,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
   }
 
   void _showSuccessDialog() {
+    _isSuccessDialogOpen = true;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -295,13 +298,19 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
+                onPressed: _isHandlingSuccessAction
+                    ? null
+                    : () {
+                  setState(() {
+                    _isHandlingSuccessAction = true;
+                  });
                   _viewModel.resetForm();
+                  Navigator.pop(ctx);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: colorScheme.onPrimary,
+                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -315,6 +324,12 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
         ),
       );
       },
-    );
+    ).then((_) {
+      if (!mounted) return;
+      setState(() {
+        _isSuccessDialogOpen = false;
+        _isHandlingSuccessAction = false;
+      });
+    });
   }
 }

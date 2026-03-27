@@ -35,15 +35,28 @@ class AuthViewModel extends ChangeNotifier {
 
   /// Ouve mudanças de sessão do Supabase Auth em tempo real.
   void _init() {
-    _authService.authStateChanges.listen((event) async {
-      if (event.session != null) {
-        await _loadProfile();
-      } else {
-        _profile = null;
-        _status = AuthStatus.unauthenticated;
+    _authService.authStateChanges.listen(
+      (event) async {
+        try {
+          if (event.session != null) {
+            await _loadProfile();
+          } else {
+            _profile = null;
+            _status = AuthStatus.unauthenticated;
+            notifyListeners();
+          }
+        } catch (e) {
+          _errorMessage = 'Erro ao atualizar sessao. Tente novamente.';
+          _status = AuthStatus.error;
+          notifyListeners();
+        }
+      },
+      onError: (Object _) {
+        _errorMessage = 'Falha ao observar mudancas de autenticacao.';
+        _status = AuthStatus.error;
         notifyListeners();
-      }
-    });
+      },
+    );
 
     // Verifica sessão existente ao iniciar.
     final session = _authService.currentSession;

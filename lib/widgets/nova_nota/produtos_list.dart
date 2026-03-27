@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
@@ -107,11 +108,11 @@ class ProdutosList extends StatelessWidget {
 
   Widget _buildProdutoCard(BuildContext context, int index, Map<String, dynamic> produto) {
     final colorScheme = Theme.of(context).colorScheme;
-    final nome = produto['nome'] ?? 'Produto ${index + 1}';
-    final qtd = produto['quantidade'] ?? 1;
-    final valorUnitario = produto['valor_unitario'];
-    final valorTotal = produto['valor_total'];
-    final embalagem = produto['embalagem'] ?? produto['tipo_unidade'] ?? 'UN';
+    final nome = produto[ColsProdutoNota.nome] ?? 'Produto ${index + 1}';
+    final qtd = produto[ColsProdutoNota.quantidade] ?? 1;
+    final valorUnitario = produto[ColsProdutoNota.valorUnitario];
+    final valorTotal = produto[ColsProdutoNota.valorTotal];
+    final embalagem = produto[ColsProdutoNota.embalagem] ?? produto[ColsProdutoNota.tipoUnidade] ?? 'UN';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

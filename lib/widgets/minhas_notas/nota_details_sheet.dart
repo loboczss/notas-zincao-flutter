@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/widgets/minhas_notas/status_badge.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
@@ -14,148 +15,175 @@ import 'package:notas_zincao_flutter/widgets/shared/full_screen_image_viewer.dar
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-/// Remove caracteres não numéricos do telefone para preparar para WhatsApp/URL
-String _sanitizePhone(String phone) {
-  return phone.replaceAll(RegExp(r'[^\d+]'), '');
-}
+class _NotaDetailsActions {
+  /// Remove caracteres nao numericos do telefone para preparar para WhatsApp/URL.
+  static String sanitizePhone(String phone) {
+    return phone.replaceAll(RegExp(r'[^\d+]'), '');
+  }
 
-/// Abre WhatsApp com o número fornecido
-Future<void> _openWhatsApp(String phoneNumber) async {
-  try {
-    final sanitized = _sanitizePhone(phoneNumber);
-    // Remove o '+' se estiver no início (WhatsApp link formato)
+  static void _showUnavailableMessage(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  /// Abre WhatsApp com o numero fornecido.
+  static Future<void> openWhatsApp(BuildContext context, String phoneNumber) async {
+    final sanitized = sanitizePhone(phoneNumber);
     final clean = sanitized.startsWith('+') ? sanitized.substring(1) : sanitized;
-    
-    final whatsappUrl = Uri.parse('https://wa.me/$clean');
-    
-    if (await canLaunchUrl(whatsappUrl)) {
-      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
-    } else {
-      throw 'Could not launch WhatsApp';
+    if (clean.isEmpty) {
+      _showUnavailableMessage(context, 'Telefone invalido para abrir no WhatsApp.');
+      return;
     }
-  } catch (e) {
-    debugPrint('Erro ao abrir WhatsApp: $e');
-  }
-}
 
-/// Faz uma chamada telefônica
-Future<void> _makePhoneCall(String phoneNumber) async {
-  try {
-    final sanitized = _sanitizePhone(phoneNumber);
-    final telUrl = Uri.parse('tel:$sanitized');
-    
-    if (await canLaunchUrl(telUrl)) {
-      await launchUrl(telUrl);
-    } else {
-      throw 'Could not launch phone call';
-    }
-  } catch (e) {
-    debugPrint('Erro ao fazer chamada: $e');
-  }
-}
+    final uris = <Uri>[
+      Uri.parse('whatsapp://send?phone=$clean'),
+      Uri.parse('https://wa.me/$clean'),
+    ];
 
-// ── Widget builder para o menu do admin ────────────────────────────────────────
-PopupMenuButton<String> _buildAdminMenu(
-  BuildContext context, 
-  NotaRetirada nota, 
-  Function()? onActionComplete,
-) {
-  final cs = Theme.of(context).colorScheme;
-  final service = NotaRetiradaService();
-
-  return PopupMenuButton<String>(
-    icon: Icon(Icons.more_vert, color: cs.onSurface),
-    color: cs.surface,
-    onSelected: (value) async {
-      if (value == 'edit') {
-        Navigator.pop(context);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => NotaEditScreen(nota: nota, onSave: onActionComplete),
-          ),
-        );
-      } else if (value == 'cancel') {
-        showDialog(
-          context: context,
-          builder: (ctx) => ConfirmationDialog(
-            title: 'Cancelar Nota',
-            message: 'Tem certeza que deseja cancelar esta nota? Esta ação não pode ser desfeita.',
-            confirmLabel: 'Sim, Cancelar',
-            confirmColor: AppColors.warning,
-            onConfirm: () async {
-              try {
-                await service.cancel(nota.id);
-                if (!context.mounted) return;
-                if (onActionComplete != null) onActionComplete();
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (fctx) => const ActionFeedbackDialog(
-                    isSuccess: true,
-                    title: 'Sucesso!',
-                    message: 'A nota foi cancelada com sucesso.',
-                  ),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                showDialog(
-                  context: context,
-                  builder: (fctx) => ActionFeedbackDialog(
-                    isSuccess: false,
-                    title: 'Erro',
-                    message: 'Não foi possível cancelar a nota: $e',
-                  ),
-                );
-              }
-            },
-          ),
-        );
-      } else if (value == 'delete') {
-        showDialog(
-          context: context,
-          builder: (ctx) => ConfirmationDialog(
-            title: 'Excluir Nota',
-            message: 'Deseja excluir permanentemente esta nota do sistema?',
-            confirmLabel: 'Excluir Agora',
-            confirmColor: AppColors.error,
-            onConfirm: () async {
-              try {
-                await service.delete(nota.id);
-                if (!context.mounted) return;
-                if (onActionComplete != null) onActionComplete();
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (fctx) => const ActionFeedbackDialog(
-                    isSuccess: true,
-                    title: 'Excluída!',
-                    message: 'A nota foi removida definitivamente do sistema.',
-                  ),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                showDialog(
-                  context: context,
-                  builder: (fctx) => ActionFeedbackDialog(
-                    isSuccess: false,
-                    title: 'Erro',
-                    message: 'Ocorreu um erro ao tentar excluir: $e',
-                  ),
-                );
-              }
-            },
-          ),
-        );
+    for (final uri in uris) {
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (launched) return;
+      } catch (e) {
+        debugPrint('Falha ao abrir $uri: $e');
       }
-    },
-    itemBuilder: (context) => [
-      PopupMenuItem(value: 'edit', child: Text('Editar Nota (Admin)', style: TextStyle(color: cs.onSurface))),
-      if (nota.statusRetirada != StatusRetirada.cancelada)
-        PopupMenuItem(value: 'cancel', child: Text('Cancelar Nota', style: TextStyle(color: cs.onSurface))),
-      PopupMenuItem(value: 'delete', child: Text('Excluir Nota', style: TextStyle(color: cs.onSurface))),
-    ],
-  );
+    }
+
+    if (!context.mounted) return;
+    _showUnavailableMessage(
+      context,
+      'Nao foi possivel abrir o WhatsApp neste dispositivo.',
+    );
+  }
+
+  /// Faz uma chamada telefonica.
+  static Future<void> makePhoneCall(BuildContext context, String phoneNumber) async {
+    final sanitized = sanitizePhone(phoneNumber);
+    if (sanitized.isEmpty) {
+      _showUnavailableMessage(context, 'Telefone invalido para ligacao.');
+      return;
+    }
+
+    final telUrl = Uri.parse('tel:$sanitized');
+
+    try {
+      final launched = await launchUrl(telUrl, mode: LaunchMode.externalApplication);
+      if (launched) return;
+    } catch (e) {
+      debugPrint('Erro ao fazer chamada: $e');
+    }
+
+    if (!context.mounted) return;
+    _showUnavailableMessage(
+      context,
+      'Nao foi possivel iniciar a ligacao neste dispositivo.',
+    );
+  }
+
+  static PopupMenuButton<String> buildAdminMenu(
+    BuildContext context,
+    NotaRetirada nota,
+    Function()? onActionComplete,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final service = NotaRetiradaService();
+
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert, color: cs.onSurface),
+      color: cs.surface,
+      onSelected: (value) async {
+        if (value == 'edit') {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NotaEditScreen(nota: nota, onSave: onActionComplete),
+            ),
+          );
+        } else if (value == 'cancel') {
+          showDialog(
+            context: context,
+            builder: (ctx) => ConfirmationDialog(
+              title: 'Cancelar Nota',
+              message: 'Tem certeza que deseja cancelar esta nota? Esta ação não pode ser desfeita.',
+              confirmLabel: 'Sim, Cancelar',
+              confirmColor: AppColors.warning,
+              onConfirm: () async {
+                try {
+                  await service.cancel(nota.id);
+                  if (!context.mounted) return;
+                  if (onActionComplete != null) onActionComplete();
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (fctx) => const ActionFeedbackDialog(
+                      isSuccess: true,
+                      title: 'Sucesso!',
+                      message: 'A nota foi cancelada com sucesso.',
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (fctx) => ActionFeedbackDialog(
+                      isSuccess: false,
+                      title: 'Erro',
+                      message: 'Nao foi possivel cancelar a nota: $e',
+                    ),
+                  );
+                }
+              },
+            ),
+          );
+        } else if (value == 'delete') {
+          showDialog(
+            context: context,
+            builder: (ctx) => ConfirmationDialog(
+              title: 'Excluir Nota',
+              message: 'Deseja excluir permanentemente esta nota do sistema?',
+              confirmLabel: 'Excluir Agora',
+              confirmColor: AppColors.error,
+              onConfirm: () async {
+                try {
+                  await service.delete(nota.id);
+                  if (!context.mounted) return;
+                  if (onActionComplete != null) onActionComplete();
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (fctx) => const ActionFeedbackDialog(
+                      isSuccess: true,
+                      title: 'Excluida!',
+                      message: 'A nota foi removida definitivamente do sistema.',
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (fctx) => ActionFeedbackDialog(
+                      isSuccess: false,
+                      title: 'Erro',
+                      message: 'Ocorreu um erro ao tentar excluir: $e',
+                    ),
+                  );
+                }
+              },
+            ),
+          );
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 'edit', child: Text('Editar Nota (Admin)', style: TextStyle(color: cs.onSurface))),
+        if (nota.statusRetirada != StatusRetirada.cancelada)
+          PopupMenuItem(value: 'cancel', child: Text('Cancelar Nota', style: TextStyle(color: cs.onSurface))),
+        PopupMenuItem(value: 'delete', child: Text('Excluir Nota', style: TextStyle(color: cs.onSurface))),
+      ],
+    );
+  }
 }
 
 void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel authViewModel, [Function()? onActionComplete]) {
@@ -206,7 +234,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                       Row(
                         children: [
                           if (isAdmin)
-                             _buildAdminMenu(context, nota, onActionComplete),
+                              _NotaDetailsActions.buildAdminMenu(context, nota, onActionComplete),
                           IconButton(
                             onPressed: () => Navigator.pop(context),
                             icon: Icon(Icons.close, color: cs.onSurface),
@@ -296,7 +324,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                         child: IconButton(
                                           padding: EdgeInsets.zero,
                                           iconSize: 18,
-                                          onPressed: () => _openWhatsApp(nota.telefoneCliente!),
+                                          onPressed: () => _NotaDetailsActions.openWhatsApp(context, nota.telefoneCliente!),
                                           icon: Icon(
                                             Icons.chat_bubble_outline,
                                             color: AppColors.success,
@@ -312,7 +340,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                         child: IconButton(
                                           padding: EdgeInsets.zero,
                                           iconSize: 18,
-                                          onPressed: () => _makePhoneCall(nota.telefoneCliente!),
+                                          onPressed: () => _NotaDetailsActions.makePhoneCall(context, nota.telefoneCliente!),
                                           icon: Icon(
                                             Icons.call_outlined,
                                             color: AppColors.primary,
@@ -337,12 +365,13 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                           ),
                           child: Column(
                             children: nota.produtos.map((p) {
-                              final nome = p['nome'] ?? 'Produto';
-                              final qtdOriginal = double.tryParse(p['quantidade']?.toString() ?? '1') ?? 1.0;
-                              final qtdRetirada = double.tryParse(p['quantidade_retirada']?.toString() ?? '0') ?? 0.0;
-                              final tipoStr = p['tipo_unidade'] ?? 'UN';
+                              final nome = p[ColsProdutoNota.nome] ?? 'Produto';
+                              final qtdOriginal = double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
+                              final qtdRetirada = double.tryParse(p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ?? 0.0;
+                              final tipoStr = p[ColsProdutoNota.tipoUnidade] ?? 'UN';
                               final isComplete = qtdRetirada >= qtdOriginal;
-                              
+                              final valorUnit = p[ColsProdutoNota.valorUnitario];
+
                               return ListTile(
                                 leading: Icon(
                                   isComplete ? Icons.check_circle : Icons.inventory_2_outlined,
@@ -353,9 +382,9 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                   'Comprado: $qtdOriginal $tipoStr | Entregue: $qtdRetirada $tipoStr',
                                   style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
                                 ),
-                                trailing: p['preco'] != null
+                                trailing: valorUnit != null
                                     ? Text(
-                                        NumberFormat.simpleCurrency(locale: 'pt_BR').format(p['preco']),
+                                        NumberFormat.simpleCurrency(locale: 'pt_BR').format((valorUnit as num).toDouble()),
                                         style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold),
                                       )
                                     : null,
@@ -392,6 +421,22 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                   width: double.infinity,
                                   height: 200,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Container(
+                                    width: double.infinity,
+                                    height: 200,
+                                    decoration: BoxDecoration(
+                                      color: cs.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.broken_image_outlined, size: 40, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                                        const SizedBox(height: 8),
+                                        Text('Imagem indisponível', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -442,11 +487,16 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                       ...listaItens.map((item) {
                                         final idx = item['index'];
                                         final qtd = item['quantidade'];
-                                        final prod = nota.produtos[idx];
-                                        final nome = prod['nome'] ?? 'Desconhecido';
+                                        String nome = 'Desconhecido';
+                                        if (idx is int && idx >= 0 && idx < nota.produtos.length) {
+                                          final prod = nota.produtos[idx];
+                                          if (prod is Map<String, dynamic>) {
+                                            nome = (prod[ColsProdutoNota.nome] ?? 'Desconhecido').toString();
+                                          }
+                                        }
                                         return Padding(
                                           padding: const EdgeInsets.only(bottom: 2),
-                                          child: Text('• $qtd x $nome', style: TextStyle(color: cs.onSurface, fontSize: 14))
+                                          child: Text('• $qtd x $nome', style: TextStyle(color: cs.onSurface, fontSize: 14)),
                                         );
                                       }),
                                    ],
@@ -468,7 +518,21 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                                 tag: 'hist_${evento['data']}_$i',
                                                 child: ClipRRect(
                                                   borderRadius: BorderRadius.circular(8),
-                                                  child: Image.network(fotoUrl, width: 80, height: 80, fit: BoxFit.cover),
+                                                  child: Image.network(
+                                                    fotoUrl,
+                                                    width: 80,
+                                                    height: 80,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context, error, stackTrace) => Container(
+                                                      width: 80,
+                                                      height: 80,
+                                                      decoration: BoxDecoration(
+                                                        color: cs.surfaceContainerHighest,
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: Icon(Icons.broken_image_outlined, size: 24, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             );

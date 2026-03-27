@@ -15,6 +15,7 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
   int _offset = 0;
   bool _temMais = true;
 
+  bool _isDisposed = false;
   bool isLoading = false;
   bool isCarregandoMais = false;
   bool isSaving = false;
@@ -42,14 +43,18 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
         limite: _limite,
         query: _query,
       );
+      if (_isDisposed) return;
       _produtos.addAll(pagina);
       _temMais = pagina.length >= _limite;
       _offset = pagina.length;
     } catch (e) {
+      if (_isDisposed) return;
       erro = e.toString();
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -67,14 +72,18 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
         limite: _limite,
         query: _query,
       );
+      if (_isDisposed) return;
       _produtos.addAll(pagina);
       _temMais = pagina.length >= _limite;
       _offset += pagina.length;
     } catch (e) {
+      if (_isDisposed) return;
       erro = e.toString();
     } finally {
-      isCarregandoMais = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        isCarregandoMais = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -103,38 +112,54 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
       await _service.createProduto(produto);
       await carregarProdutos();
     } catch (e) {
+      if (_isDisposed) return;
       erro = e.toString();
       isSaving = false;
       notifyListeners();
       rethrow;
     } finally {
-      isSaving = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        isSaving = false;
+        notifyListeners();
+      }
     }
   }
 
-  Future<void> editarProduto(ProdutoEstoque produto) async {
+  Future<void> editarProduto(
+    ProdutoEstoque produto, {
+    int? idProdutoOriginal,
+  }) async {
     isSaving = true;
     erro = null;
     notifyListeners();
 
     try {
-      await _service.updateProduto(produto);
-      
-      // Atualiza o saldo do produto no header (caso seja o monitorado)
+      await _service.updateProduto(
+        produto,
+        idProdutoReferencia: idProdutoOriginal ?? produto.idProduto,
+      );
+      if (_isDisposed) return;
       if (produto.idProduto == ProductStockHeaderViewModel.productId) {
         ProductStockHeaderViewModel.instance.refreshStock();
       }
-      
       await carregarProdutos();
     } catch (e) {
+      if (_isDisposed) return;
       erro = e.toString();
       isSaving = false;
       notifyListeners();
       rethrow;
     } finally {
-      isSaving = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        isSaving = false;
+        notifyListeners();
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 }

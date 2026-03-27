@@ -4,56 +4,31 @@ import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
 import 'package:notas_zincao_flutter/services/nota_form_service.dart';
-import 'package:notas_zincao_flutter/supabase_config.dart';
+import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_catalog_viewmodel.dart';
+import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_enums.dart';
+import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_fields_viewmodel.dart';
+import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_photo_viewmodel.dart';
 
-/// Campos obrigatórios que a IA precisa preencher.
-/// Se não forem preenchidos, devem piscar em vermelho.
-enum CampoObrigatorio {
-  nomeCliente,
-  telefoneCliente,
-  numeroNota,
-  serieNota,
-  dataCompra,
-}
-
-/// Estados possíveis da tela.
-enum NotaFormStatus {
-  idle,
-  pickingImage,
-  uploadingImage,
-  analyzingReceipt,
-  saving,
-  success,
-  duplicateFound,
-  error,
-  quotaExceeded,
-}
+export 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_enums.dart';
 
 /// ViewModel para a tela de Nova Nota.
 /// Gerencia todo o fluxo: captura → IA → formulário → salvar.
 class NotaFormViewModel extends ChangeNotifier {
   final NotaFormService _service = NotaFormService();
   final EstoqueProdutoService _estoqueService = EstoqueProdutoService();
+  late final NotaFormFieldsViewModel _fieldsVm;
+  late final NotaFormPhotoViewModel _photoVm;
+  late final NotaFormCatalogViewModel _catalogVm;
   bool _isDisposed = false;
 
   NotaFormViewModel() {
-    nomeClienteCtrl.addListener(_onFieldChanged);
-    telefoneClienteCtrl.addListener(_onFieldChanged);
-    numeroNotaCtrl.addListener(_onFieldChanged);
-    serieNotaCtrl.addListener(_onFieldChanged);
-    dataCompraCtrl.addListener(_onFieldChanged);
-    descontoCtrl.addListener(_onDiscountChanged);
-  }
+    _fieldsVm = NotaFormFieldsViewModel();
+    _photoVm = NotaFormPhotoViewModel();
+    _catalogVm = NotaFormCatalogViewModel(_estoqueService);
 
-  void _onFieldChanged() {
-    // Se o campo estava marcado como faltante e agora não está mais vazio,
-    // removemos da lista para parar de piscar.
-    if (_missingFields.isEmpty) return;
-    _checkMissingFields();
-  }
-
-  void _onDiscountChanged() {
-    _notifySafe();
+    _fieldsVm.addListener(_notifySafe);
+    _photoVm.addListener(_notifySafe);
+    _catalogVm.addListener(_onCatalogChanged);
   }
 
   // ─── Estado ──────────────────────────────────────────────────
@@ -70,55 +45,41 @@ class NotaFormViewModel extends ChangeNotifier {
   String? _duplicateReason;
   String? get duplicateReason => _duplicateReason;
 
-  File? _selectedImage;
-  File? get selectedImage => _selectedImage;
-
-  String? _uploadedImageUrl;
-  String? get uploadedImageUrl => _uploadedImageUrl;
-
-  /// Campos que estão faltando (devem piscar em vermelho).
-  final Set<CampoObrigatorio> _missingFields = {};
-  Set<CampoObrigatorio> get missingFields => Set.unmodifiable(_missingFields);
-
-  bool _aiProcessed = false;
-  bool get aiProcessed => _aiProcessed;
-
-  double? _valorTotalFotoAnalisada;
-  double? get valorTotalFotoAnalisada => _valorTotalFotoAnalisada;
-
-  double? _divergenciaTotalFotoItens;
-  double? get divergenciaTotalFotoItens => _divergenciaTotalFotoItens;
-
-  bool _quotaExceeded = false;
-  bool get quotaExceeded => _quotaExceeded;
+  File? get selectedImage => _photoVm.selectedImage;
+  String? get uploadedImageUrl => _photoVm.uploadedImageUrl;
+  Set<CampoObrigatorio> get missingFields => _fieldsVm.missingFields;
+  bool get aiProcessed => _photoVm.aiProcessed;
+  double? get valorTotalFotoAnalisada => _photoVm.valorTotalFotoAnalisada;
+  double? get divergenciaTotalFotoItens => _photoVm.divergenciaTotalFotoItens;
+  bool get quotaExceeded => _photoVm.quotaExceeded;
 
   void clearQuotaError() {
-    _quotaExceeded = false;
+    _photoVm.clearQuotaError();
     _setStatus(NotaFormStatus.idle);
   }
 
   // ─── Campos do Formulário ────────────────────────────────────
 
-  final TextEditingController nomeClienteCtrl = TextEditingController();
-  final TextEditingController documentoClienteCtrl = TextEditingController();
-  final TextEditingController telefoneClienteCtrl = TextEditingController();
-  final TextEditingController numeroNotaCtrl = TextEditingController();
-  final TextEditingController serieNotaCtrl = TextEditingController(text: '1');
-  final TextEditingController chaveNfeCtrl = TextEditingController();
-  final TextEditingController dataCompraCtrl = TextEditingController();
-  final TextEditingController dataPrevistaRetiradaCtrl = TextEditingController();
-  final TextEditingController valorTotalCtrl = TextEditingController();
-  final TextEditingController descontoCtrl = TextEditingController(text: '0.00');
-  final TextEditingController observacoesCtrl = TextEditingController();
-  final TextEditingController contatoIdCtrl = TextEditingController();
+  TextEditingController get nomeClienteCtrl => _fieldsVm.nomeClienteCtrl;
+  TextEditingController get documentoClienteCtrl => _fieldsVm.documentoClienteCtrl;
+  TextEditingController get telefoneClienteCtrl => _fieldsVm.telefoneClienteCtrl;
+  TextEditingController get numeroNotaCtrl => _fieldsVm.numeroNotaCtrl;
+  TextEditingController get serieNotaCtrl => _fieldsVm.serieNotaCtrl;
+  TextEditingController get chaveNfeCtrl => _fieldsVm.chaveNfeCtrl;
+  TextEditingController get dataCompraCtrl => _fieldsVm.dataCompraCtrl;
+  TextEditingController get dataPrevistaRetiradaCtrl => _fieldsVm.dataPrevistaRetiradaCtrl;
+  TextEditingController get valorTotalCtrl => _fieldsVm.valorTotalCtrl;
+  TextEditingController get descontoCtrl => _fieldsVm.descontoCtrl;
+  TextEditingController get observacoesCtrl => _fieldsVm.observacoesCtrl;
+  TextEditingController get contatoIdCtrl => _fieldsVm.contatoIdCtrl;
 
-  double get descontoTotalInformado => _parseCurrency(descontoCtrl.text);
+  double get descontoTotalInformado => _fieldsVm.descontoTotalInformado;
 
   double get valorTotalBruto {
-    if (_produtos.isNotEmpty) {
-      return _calcularTotalProdutos(_produtos);
+    if (_catalogVm.produtos.isNotEmpty) {
+      return _catalogVm.calcularTotalProdutos();
     }
-    return _parseCurrency(valorTotalCtrl.text);
+    return _fieldsVm.parseCurrency(valorTotalCtrl.text);
   }
 
   double get valorTotalComDesconto {
@@ -126,133 +87,78 @@ class NotaFormViewModel extends ChangeNotifier {
     return liquido < 0 ? 0 : liquido;
   }
 
-  List<Map<String, dynamic>> _produtos = [];
-  List<Map<String, dynamic>> get produtos => List.unmodifiable(_produtos);
-
-  List<ProdutoEstoque> _produtosCatalogo = [];
-  List<ProdutoEstoque> get produtosCatalogo => List.unmodifiable(_produtosCatalogo);
-
-  bool _isLoadingProdutosCatalogo = false;
-  bool get isLoadingProdutosCatalogo => _isLoadingProdutosCatalogo;
+  List<Map<String, dynamic>> get produtos => _catalogVm.produtos;
+  List<ProdutoEstoque> get produtosCatalogo => _catalogVm.produtosCatalogo;
+  bool get isLoadingProdutosCatalogo => _catalogVm.isLoadingProdutosCatalogo;
 
   // ─── Ações ───────────────────────────────────────────────────
 
   Future<void> loadProdutosCatalogo() async {
     if (_isDisposed) return;
-    _isLoadingProdutosCatalogo = true;
-    _notifySafe();
-
-    try {
-      _produtosCatalogo = await _estoqueService.searchForNotePicker(limit: 20);
-    } catch (_) {
-      _produtosCatalogo = [];
-    } finally {
-      if (!_isDisposed) {
-        _isLoadingProdutosCatalogo = false;
-        _notifySafe();
-      }
-    }
+    await _catalogVm.loadProdutosCatalogo();
   }
 
-  /// Tira foto com a câmera.
-  Future<void> capturePhoto() async {
-    _setStatus(NotaFormStatus.pickingImage);
-    try {
-      final file = await _service.captureFromCamera();
-      if (file != null) {
-        _selectedImage = file;
-        _aiProcessed = false;
-        _uploadedImageUrl = null;
-        _valorTotalFotoAnalisada = null;
-        _divergenciaTotalFotoItens = null;
-        _setStatus(NotaFormStatus.idle);
-      } else {
-        _setStatus(NotaFormStatus.idle);
-      }
-    } catch (e) {
-      _setError('Erro ao capturar foto: $e');
-    }
-  }
+  Future<void> capturePhoto() =>
+      _handlePhotoPick(_service.captureFromCamera, 'capturar foto');
 
-  /// Seleciona foto da galeria.
-  Future<void> pickPhoto() async {
-    _setStatus(NotaFormStatus.pickingImage);
-    try {
-      final file = await _service.pickFromGallery();
-      if (file != null) {
-        _selectedImage = file;
-        _aiProcessed = false;
-        _uploadedImageUrl = null;
-        _valorTotalFotoAnalisada = null;
-        _divergenciaTotalFotoItens = null;
-        _setStatus(NotaFormStatus.idle);
-      } else {
-        _setStatus(NotaFormStatus.idle);
-      }
-    } catch (e) {
-      _setError('Erro ao selecionar foto: $e');
-    }
-  }
+  Future<void> pickPhoto() =>
+      _handlePhotoPick(_service.pickFromGallery, 'selecionar foto');
 
   /// Envia a foto para a OpenAI e preenche os campos automaticamente.
   Future<void> analyzeWithAI() async {
-    if (_selectedImage == null) {
+    if (_photoVm.selectedImage == null) {
       _setError('Selecione ou tire uma foto primeiro.');
       return;
     }
 
     _setStatus(NotaFormStatus.analyzingReceipt);
-    _missingFields.clear();
+    _fieldsVm.clearMissingFields();
 
     try {
-      final result = await _service.analyzeReceipt(_selectedImage!);
-      _valorTotalFotoAnalisada = result.totalLiquidoFoto;
-      _divergenciaTotalFotoItens = null;
+      final result = await _service.analyzeReceipt(_photoVm.selectedImage!);
+      _photoVm.iniciarAnalise();
 
       debugPrint(
         '🧾 [analyzeReceipt] bruto=${result.totalBrutoFoto}, liquido=${result.totalLiquidoFoto}, desconto=${result.descontoTotal}, valor_total=${result.valorTotal}',
       );
 
-      // Preenche os campos com os dados da IA
-      _fillField(nomeClienteCtrl, result.nomeCliente);
-      _fillField(documentoClienteCtrl, result.documentoCliente);
-      _fillField(telefoneClienteCtrl, result.telefoneCliente);
-      _fillField(numeroNotaCtrl, result.numeroNota);
-      _fillField(serieNotaCtrl, result.serieNota ?? '1');
-      _fillField(chaveNfeCtrl, result.chaveNfe);
-      _fillField(dataCompraCtrl, result.dataCompra);
+      _fieldsVm.fillField(nomeClienteCtrl, result.nomeCliente);
+      _fieldsVm.fillField(documentoClienteCtrl, result.documentoCliente);
+      _fieldsVm.fillField(telefoneClienteCtrl, result.telefoneCliente);
+      _fieldsVm.fillField(numeroNotaCtrl, result.numeroNota);
+      _fieldsVm.fillField(serieNotaCtrl, result.serieNota ?? '1');
+      _fieldsVm.fillField(chaveNfeCtrl, result.chaveNfe);
+      _fieldsVm.fillField(dataCompraCtrl, result.dataCompra);
 
       if (result.totalBrutoFoto != null) {
         valorTotalCtrl.text = result.totalBrutoFoto!.toStringAsFixed(2);
       }
-
       descontoCtrl.text = (result.descontoTotal ?? 0).toStringAsFixed(2);
-
-      if (result.observacoes != null) {
-        observacoesCtrl.text = result.observacoes!;
-      }
+      if (result.observacoes != null) observacoesCtrl.text = result.observacoes ?? '';
 
       if (result.produtos.isNotEmpty) {
-        _produtos = await _filtrarProdutosDoCatalogo(result.produtos);
+        _catalogVm.setProdutos(await _catalogVm.filtrarProdutosDoCatalogo(result.produtos));
       } else {
-        _produtos = [];
+        _catalogVm.clearProdutos();
       }
 
-      if (_produtos.isNotEmpty) {
-        final totalItens = _calcularTotalProdutos(_produtos);
+      double? finalValorTotal = result.totalLiquidoFoto;
+      double? finalDivergencia;
+
+      if (_catalogVm.produtos.isNotEmpty) {
+        final totalItens = _catalogVm.calcularTotalProdutos();
         final totaisFoto = _resolverTotaisFoto(result, totalItens);
-        _valorTotalFotoAnalisada = totaisFoto.totalLiquido;
+        finalValorTotal = totaisFoto.totalLiquido;
         valorTotalCtrl.text = totalItens.toStringAsFixed(2);
 
-        if (_valorTotalFotoAnalisada != null) {
-          final desconto = result.descontoTotal ?? 0.0;
+        if (finalValorTotal != null) {
+          final desconto = result.descontoTotal ?? 0;
           final totalLiquido = totalItens - desconto;
-          _divergenciaTotalFotoItens =
-              (totalLiquido - _valorTotalFotoAnalisada!).abs();
-          if (_divergenciaTotalFotoItens! > 0.01) {
+          finalDivergencia = (totalLiquido - finalValorTotal).abs();
+          if (finalDivergencia > 0.01) {
             observacoesCtrl.text = _appendConferenciaAutomatica(
               observacoesCtrl.text,
-              totalFoto: _valorTotalFotoAnalisada!,
+              totalFoto: finalValorTotal,
               totalItens: totalLiquido,
             );
           }
@@ -261,16 +167,13 @@ class NotaFormViewModel extends ChangeNotifier {
         valorTotalCtrl.text = result.totalBrutoFoto!.toStringAsFixed(2);
       }
 
-      _aiProcessed = true;
-
-      // Verifica campos obrigatórios que ficaram vazios
-      _checkMissingFields();
-
+      _photoVm.concluirAnalise(valorTotal: finalValorTotal, divergencia: finalDivergencia);
+      _fieldsVm.checkMissingFields();
       _setStatus(NotaFormStatus.idle);
     } catch (e) {
       final msg = e.toString();
       if (msg.contains('insufficient_quota') || msg.contains('429')) {
-        _quotaExceeded = true;
+        _photoVm.setQuotaExceeded(true);
         _status = NotaFormStatus.quotaExceeded;
         _errorMessage = null;
         _notifySafe();
@@ -282,196 +185,76 @@ class NotaFormViewModel extends ChangeNotifier {
 
   /// Salva a nota no Supabase (upload da foto + inserção da nota).
   Future<void> saveNota(String ownerUserId) async {
-    _missingFields.clear();
-    _checkMissingFields();
+    if (_isDisposed) return;
+    _fieldsVm.clearMissingFields();
+    _fieldsVm.checkMissingFields();
     _notaDuplicada = null;
     _duplicateReason = null;
 
-    if (_missingFields.isNotEmpty) {
+    if (_fieldsVm.missingFields.isNotEmpty) {
       _setError('Preencha os campos obrigatórios destacados em vermelho.');
       return;
     }
 
-    final erroProdutos = _validarProdutosAntesDeSalvar();
-    if (erroProdutos != null) {
-      _setError(erroProdutos);
-      return;
-    }
+    final erroProdutos = _catalogVm.validarProdutosAntesDeSalvar();
+    if (erroProdutos != null) { _setError(erroProdutos); return; }
 
     final erroDesconto = _validarDesconto();
-    if (erroDesconto != null) {
-      _setError(erroDesconto);
-      return;
-    }
+    if (erroDesconto != null) { _setError(erroDesconto); return; }
 
     final erroConferencia = _validarConferenciaComTotalDaFoto();
-    if (erroConferencia != null) {
-      _setError(erroConferencia);
-      return;
-    }
+    if (erroConferencia != null) { _setError(erroConferencia); return; }
 
-    final numeroDigitado = numeroNotaCtrl.text.trim();
-    final chaveDigitada = chaveNfeCtrl.text.trim();
-
-    try {
-      final duplicada = await _service.findNotaDuplicada(
-        numeroNota: numeroDigitado,
-        chaveNfe: chaveDigitada.isEmpty ? null : chaveDigitada,
-      );
-
-      if (duplicada != null) {
-        _notaDuplicada = duplicada;
-        final duplicouPorNumero = numeroDigitado.isNotEmpty &&
-            duplicada.numeroNota.trim() == numeroDigitado;
-        final duplicouPorChave = chaveDigitada.isNotEmpty &&
-            (duplicada.chaveNfe?.trim() == chaveDigitada);
-
-        _duplicateReason = duplicouPorNumero && duplicouPorChave
-            ? 'Já existe uma nota com este número e esta chave NFe.'
-            : duplicouPorNumero
-                ? 'Já existe uma nota com este número.'
-                : 'Já existe uma nota com esta chave NFe.';
-
-        _status = NotaFormStatus.duplicateFound;
-        _errorMessage = null;
-        _notifySafe();
-        return;
-      }
-    } catch (e) {
-      _setError('Erro ao verificar duplicidade da nota: $e');
-      return;
-    }
+    if (await _verificarDuplicata()) return;
 
     _setStatus(NotaFormStatus.saving);
-
     try {
-      // Upload da imagem se existir
-      if (_selectedImage != null) {
-        _setStatus(NotaFormStatus.uploadingImage);
-        _uploadedImageUrl = await _service.uploadImage(_selectedImage!, ownerUserId);
-        _setStatus(NotaFormStatus.saving);
-      }
+      await _uploadPhotoIfNeeded(ownerUserId);
 
-      // Parse da data de compra
-      DateTime dataCompra;
-      try {
-        dataCompra = DateTime.parse(dataCompraCtrl.text);
-      } catch (_) {
-        // Tenta formato DD/MM/YYYY
-        final parts = dataCompraCtrl.text.split('/');
-        if (parts.length == 3) {
-          dataCompra = DateTime(
-            int.parse(parts[2]),
-            int.parse(parts[1]),
-            int.parse(parts[0]),
-          );
-        } else {
-          throw Exception('Data de compra inválida');
-        }
-      }
+      final dataCompra = _parseDate(dataCompraCtrl.text);
+      if (dataCompra == null) throw Exception('Data de compra inválida');
+      final dataPrevista = _parseDate(dataPrevistaRetiradaCtrl.text);
+      final valorTotal = _calcularValorTotal();
 
-      // Parse da data prevista de retirada (opcional)
-      DateTime? dataPrevistaRetirada;
-      if (dataPrevistaRetiradaCtrl.text.isNotEmpty) {
-        try {
-          dataPrevistaRetirada = DateTime.parse(dataPrevistaRetiradaCtrl.text);
-        } catch (_) {
-          final parts = dataPrevistaRetiradaCtrl.text.split('/');
-          if (parts.length == 3) {
-            dataPrevistaRetirada = DateTime(
-              int.parse(parts[2]),
-              int.parse(parts[1]),
-              int.parse(parts[0]),
-            );
-          }
-        }
-      }
+      await _service.upsertCrmContact(
+        telefone: telefoneClienteCtrl.text,
+        nome: nomeClienteCtrl.text,
+      );
 
-      // Parse do valor total
-      double? valorTotal;
-      if (_produtos.isNotEmpty) {
-        final totalCalculado = _calcularTotalProdutos(_produtos);
-        valorTotalCtrl.text = totalCalculado.toStringAsFixed(2);
-        valorTotal = totalCalculado;
-      } else if (valorTotalCtrl.text.isNotEmpty) {
-        valorTotal = _parseCurrency(valorTotalCtrl.text);
-      }
-
-      final descontoTotal = descontoTotalInformado;
-
-      // Salva no CRM se o cliente não existe
-      if (telefoneClienteCtrl.text.isNotEmpty && nomeClienteCtrl.text.isNotEmpty) {
-        try {
-          final existing = await supabase
-              .from('crm_zincao')
-              .select('contato_id')
-              .eq('contato_id', telefoneClienteCtrl.text)
-              .maybeSingle();
-
-          if (existing == null) {
-            await supabase.from('crm_zincao').insert({
-              'contato_id': telefoneClienteCtrl.text,
-              'nome': nomeClienteCtrl.text,
-            });
-          }
-        } catch (e) {
-          debugPrint('Erro ao sincronizar com CRM: $e');
-        }
-      }
-
-      debugPrint('📝 [saveNota] Iniciando save — numeroNota=${numeroNotaCtrl.text}, dataCompra=$dataCompra, valorTotal=$valorTotal, desconto=$descontoTotal, produtos=${_produtos.length}');
+      debugPrint('📝 [saveNota] numeroNota=${numeroNotaCtrl.text}, dataCompra=$dataCompra, valorTotal=$valorTotal, desconto=$descontoTotalInformado, produtos=${_catalogVm.produtos.length}');
 
       await _service.createNota(
         ownerUserId: ownerUserId,
         nomeCliente: nomeClienteCtrl.text,
         numeroNota: numeroNotaCtrl.text,
         dataCompra: dataCompra,
-        fotoUrl: _uploadedImageUrl,
+        fotoUrl: _photoVm.uploadedImageUrl,
         documentoCliente: documentoClienteCtrl.text.isNotEmpty ? documentoClienteCtrl.text : null,
         telefoneCliente: telefoneClienteCtrl.text.isNotEmpty ? telefoneClienteCtrl.text : null,
         serieNota: serieNotaCtrl.text.isNotEmpty ? serieNotaCtrl.text : '1',
         chaveNfe: chaveNfeCtrl.text.isNotEmpty ? chaveNfeCtrl.text : null,
-        dataPrevistaRetirada: dataPrevistaRetirada,
-        produtos: _produtos,
+        dataPrevistaRetirada: dataPrevista,
+        produtos: _catalogVm.produtos,
         valorTotal: valorTotal,
-        descontoTotal: descontoTotal,
+        descontoTotal: descontoTotalInformado,
         observacoes: observacoesCtrl.text.isNotEmpty ? observacoesCtrl.text : null,
         contatoId: contatoIdCtrl.text.isNotEmpty ? contatoIdCtrl.text : null,
       );
 
       _setStatus(NotaFormStatus.success);
     } catch (e, st) {
-      debugPrint('❌ [saveNota] Erro ao salvar: $e');
-      debugPrint('❌ [saveNota] StackTrace: $st');
+      debugPrint('❌ [saveNota] Erro ao salvar: $e\n$st');
       _setError('Erro ao salvar nota: $e');
     }
   }
 
   /// Reseta o formulário para cadastrar outra nota.
   void resetForm() {
-    _selectedImage = null;
-    _uploadedImageUrl = null;
-    _aiProcessed = false;
-    _valorTotalFotoAnalisada = null;
-    _divergenciaTotalFotoItens = null;
-    _missingFields.clear();
-    _produtos = [];
+    _photoVm.reset();
+    _catalogVm.clearProdutos();
     _notaDuplicada = null;
     _duplicateReason = null;
-
-    nomeClienteCtrl.clear();
-    documentoClienteCtrl.clear();
-    telefoneClienteCtrl.clear();
-    numeroNotaCtrl.clear();
-    serieNotaCtrl.text = '1';
-    chaveNfeCtrl.clear();
-    dataCompraCtrl.clear();
-    dataPrevistaRetiradaCtrl.clear();
-    valorTotalCtrl.clear();
-    descontoCtrl.text = '0.00';
-    observacoesCtrl.clear();
-    contatoIdCtrl.clear();
-
+    _fieldsVm.resetFields();
     _setStatus(NotaFormStatus.idle);
   }
 
@@ -485,154 +268,118 @@ class NotaFormViewModel extends ChangeNotifier {
     _notifySafe();
   }
 
-  /// Adiciona um produto manualmente.
-  void addProduto(Map<String, dynamic> produto) {
-    if (produto['id_produto_estoque'] == null) return;
-    _produtos.add(produto);
-    _sincronizarValorTotalComProdutos();
-    _notifySafe();
-  }
-
-  /// Remove um produto pelo índice.
-  void removeProduto(int index) {
-    if (index >= 0 && index < _produtos.length) {
-      _produtos.removeAt(index);
-      _sincronizarValorTotalComProdutos();
-      _notifySafe();
-    }
-  }
-
-  /// Atualiza um produto pelo índice.
-  void updateProduto(int index, Map<String, dynamic> produto) {
-    if (index >= 0 && index < _produtos.length) {
-      if (produto['id_produto_estoque'] == null) return;
-      _produtos[index] = produto;
-      _sincronizarValorTotalComProdutos();
-      _notifySafe();
-    }
-  }
+  void addProduto(Map<String, dynamic> produto) => _catalogVm.addProduto(produto);
+  void removeProduto(int index) => _catalogVm.removeProduto(index);
+  void updateProduto(int index, Map<String, dynamic> produto) => _catalogVm.updateProduto(index, produto);
 
   Map<String, dynamic> buildProdutoNotaFromCatalogo({
     required ProdutoEstoque produto,
     required double quantidade,
     double? valorUnitario,
-  }) {
-    final valor = valorUnitario ?? produto.valorPrecoVarejo ?? 0;
-    return {
-      'id_produto_estoque': produto.idProduto,
-      'nome': produto.descricao,
-      'tipo_produto': produto.tipoProduto,
-      'quantidade': quantidade,
-      'embalagem': produto.embalagemSaida,
-      'tipo_unidade': produto.embalagemSaida,
-      'valor_unitario': valor,
-      'valor_total': valor * quantidade,
-    };
+  }) =>
+      _catalogVm.buildProdutoNotaFromCatalogo(
+        produto: produto,
+        quantidade: quantidade,
+        valorUnitario: valorUnitario,
+      );
+
+  Future<List<ProdutoEstoque>> searchProdutosCatalogo(String query) =>
+      _catalogVm.searchProdutosCatalogo(query);
+
+  Future<ProdutoEstoque?> findProdutoCatalogoById(int idProduto) =>
+      _catalogVm.findProdutoCatalogoById(idProduto);
+
+  Future<ProdutoEstoque?> findProdutoCatalogo(String nome) =>
+      _catalogVm.findProdutoCatalogo(nome);
+
+  // ─── Helpers privados ────────────────────────────────────────
+
+  Future<void> _handlePhotoPick(
+    Future<File?> Function() picker,
+    String errorLabel,
+  ) async {
+    _setStatus(NotaFormStatus.pickingImage);
+    try {
+      final file = await picker();
+      _photoVm.setSelectedImage(file);
+      _setStatus(NotaFormStatus.idle);
+    } catch (e) {
+      _setError('Erro ao $errorLabel: $e');
+    }
   }
 
-  Future<List<ProdutoEstoque>> searchProdutosCatalogo(String query) {
-    return _estoqueService.searchForNotePicker(query: query, limit: 30);
+  Future<void> _uploadPhotoIfNeeded(String ownerUserId) async {
+    if (_photoVm.selectedImage == null) return;
+    _setStatus(NotaFormStatus.uploadingImage);
+    _photoVm.setUploadedImageUrl(
+      await _service.uploadImage(_photoVm.selectedImage!, ownerUserId),
+    );
+    _setStatus(NotaFormStatus.saving);
   }
 
-  Future<ProdutoEstoque?> findProdutoCatalogoById(int idProduto) {
-    return _estoqueService.fetchById(idProduto);
-  }
+  /// Retorna `true` se encontrou duplicata (e já atualizou o estado).
+  Future<bool> _verificarDuplicata() async {
+    final numero = numeroNotaCtrl.text.trim();
+    final chave = chaveNfeCtrl.text.trim();
+    try {
+      final duplicada = await _service.findNotaDuplicada(
+        numeroNota: numero,
+        chaveNfe: chave.isEmpty ? null : chave,
+      );
 
-  Future<ProdutoEstoque?> findProdutoCatalogo(String nome) async {
-    final targetOriginal = _normalizeText(nome);
-    final target = _normalizeProductQuery(targetOriginal);
-    if (target.isEmpty) return null;
+      if (duplicada == null) return false;
 
-    final consultas = <String>[
-      nome.trim(),
-      target,
-      ..._buildSearchCandidates(target),
-    ].where((q) => q.trim().isNotEmpty).toSet().toList();
+      _notaDuplicada = duplicada;
+      final porNumero = numero.isNotEmpty && duplicada.numeroNota.trim() == numero;
+      final porChave = chave.isNotEmpty && duplicada.chaveNfe?.trim() == chave;
+      _duplicateReason = porNumero && porChave
+          ? 'Já existe uma nota com este número e esta chave NFe.'
+          : porNumero
+              ? 'Já existe uma nota com este número.'
+              : 'Já existe uma nota com esta chave NFe.';
 
-    final agregados = <ProdutoEstoque>[];
-    for (final consulta in consultas.take(5)) {
-      final resultados = await _estoqueService.searchForNotePicker(query: consulta, limit: 30);
-      for (final item in resultados) {
-        final exists = agregados.any((p) => p.idProduto == item.idProduto && p.idProduto != null);
-        if (!exists) {
-          agregados.add(item);
-        }
-      }
-      if (agregados.length >= 30) break;
-    }
-
-    if (agregados.isEmpty) return null;
-
-    for (final produto in agregados) {
-      if (_normalizeText(produto.descricao) == target) {
-        return produto;
-      }
-    }
-
-    for (final produto in agregados) {
-      final descricaoNorm = _normalizeText(produto.descricao);
-      if (descricaoNorm.contains(target) || target.contains(descricaoNorm)) {
-        return produto;
-      }
-    }
-
-    final tokenAlvo = target.split(' ').where((t) => t.length >= 3).toSet();
-    ProdutoEstoque? melhor;
-    var melhorScore = -1;
-
-    for (final produto in agregados) {
-      final descricao = _normalizeText(produto.descricao);
-      final tokensDescricao = descricao.split(' ').where((t) => t.length >= 3).toSet();
-      var score = tokensDescricao.intersection(tokenAlvo).length;
-      if (descricao.contains(target)) score += 3;
-      if (target.contains(descricao)) score += 2;
-
-      if (score > melhorScore) {
-        melhor = produto;
-        melhorScore = score;
-      }
-    }
-
-    if (melhor != null && melhorScore > 0) {
-      return melhor;
-    }
-
-    return agregados.first;
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────
-
-  void _checkMissingFields() {
-    final prevMissing = Set<CampoObrigatorio>.from(_missingFields);
-    _missingFields.clear();
-
-    if (nomeClienteCtrl.text.trim().isEmpty) {
-      _missingFields.add(CampoObrigatorio.nomeCliente);
-    }
-    if (telefoneClienteCtrl.text.trim().isEmpty) {
-      _missingFields.add(CampoObrigatorio.telefoneCliente);
-    }
-    if (numeroNotaCtrl.text.trim().isEmpty) {
-      _missingFields.add(CampoObrigatorio.numeroNota);
-    }
-    if (serieNotaCtrl.text.trim().isEmpty) {
-      _missingFields.add(CampoObrigatorio.serieNota);
-    }
-    if (dataCompraCtrl.text.trim().isEmpty) {
-      _missingFields.add(CampoObrigatorio.dataCompra);
-    }
-
-    // Só notifica se a lista de campos faltando mudou (otimização)
-    if (prevMissing.length != _missingFields.length || 
-        !prevMissing.every((e) => _missingFields.contains(e))) {
+      _status = NotaFormStatus.duplicateFound;
+      _errorMessage = null;
       _notifySafe();
+      return true;
+    } catch (e) {
+      _setError('Erro ao verificar duplicidade da nota: $e');
+      return true; // aborta o save
     }
   }
 
-  void _fillField(TextEditingController ctrl, String? value) {
-    if (value != null && value.isNotEmpty) {
-      ctrl.text = value;
+  DateTime? _parseDate(String text) {
+    if (text.isEmpty) return null;
+    try {
+      return DateTime.parse(text);
+    } catch (_) {
+      final parts = text.split('/');
+      if (parts.length == 3) {
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+      return null;
     }
+  }
+
+  double? _calcularValorTotal() {
+    if (_catalogVm.produtos.isNotEmpty) {
+      final total = _catalogVm.calcularTotalProdutos();
+      valorTotalCtrl.text = total.toStringAsFixed(2);
+      return total;
+    }
+    if (valorTotalCtrl.text.isNotEmpty) {
+      return _fieldsVm.parseCurrency(valorTotalCtrl.text);
+    }
+    return null;
+  }
+
+  void _onCatalogChanged() {
+    _sincronizarValorTotalComProdutos();
+    _notifySafe();
   }
 
   void _setStatus(NotaFormStatus s) {
@@ -650,147 +397,35 @@ class NotaFormViewModel extends ChangeNotifier {
   }
 
   void _notifySafe() {
-    if (!_isDisposed) {
-      notifyListeners();
-    }
-  }
-
-  String _normalizeText(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll('á', 'a')
-        .replaceAll('à', 'a')
-        .replaceAll('â', 'a')
-        .replaceAll('ã', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ô', 'o')
-        .replaceAll('õ', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ç', 'c')
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
-
-  String _normalizeProductQuery(String value) {
-    final base = value
-        .replaceAll(RegExp(r'^\d+([.,]\d+)?\s*'), '')
-        .replaceAll(RegExp(r'\b(un|und|pc|pcs|cx|kit)\b'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    return base.isEmpty ? value : base;
-  }
-
-  List<String> _buildSearchCandidates(String normalized) {
-    final tokens = normalized
-        .split(' ')
-        .map((t) => t.trim())
-        .where((t) => t.length >= 3)
-        .where((t) => !{'com', 'para', 'de', 'da', 'do', 'e'}.contains(t))
-        .toList();
-
-    final candidatos = <String>[];
-    if (tokens.length >= 2) {
-      candidatos.add(tokens.take(2).join(' '));
-    }
-    if (tokens.length >= 3) {
-      candidatos.add(tokens.take(3).join(' '));
-    }
-    candidatos.addAll(tokens.take(3));
-    return candidatos;
-  }
-
-  double _toDouble(dynamic value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    return double.tryParse(value.toString().replaceAll(',', '.').trim()) ?? 0;
-  }
-
-  double _parseCurrency(String value) {
-    var clean = value
-        .replaceAll('R\$', '')
-        .replaceAll(' ', '')
-        .trim();
-
-    if (clean.contains(',')) {
-      clean = clean.replaceAll('.', '').replaceAll(',', '.');
-    }
-
-    return double.tryParse(clean) ?? 0;
-  }
-
-  double _calcularTotalProdutos(List<Map<String, dynamic>> itens) {
-    var total = 0.0;
-    for (final item in itens) {
-      final quantidade = _toDouble(item['quantidade']);
-      final valorUnitario = _toDouble(item['valor_unitario']);
-      final valorTotalItem = quantidade * valorUnitario;
-      total += valorTotalItem;
-    }
-    return double.parse(total.toStringAsFixed(2));
-  }
-
-  String? _validarProdutosAntesDeSalvar() {
-    if (_produtos.isEmpty) {
-      return 'Adicione pelo menos 1 produto antes de salvar a nota.';
-    }
-
-    for (var i = 0; i < _produtos.length; i++) {
-      final produto = _produtos[i];
-      final quantidade = _toDouble(produto['quantidade']);
-      final valorUnitario = _toDouble(produto['valor_unitario']);
-
-      if (quantidade <= 0) {
-        return 'A quantidade do produto ${i + 1} é inválida. Ajuste para um valor maior que zero.';
-      }
-
-      if (valorUnitario < 0) {
-        return 'O valor unitário do produto ${i + 1} é inválido.';
-      }
-
-      final totalCalculado = double.parse((quantidade * valorUnitario).toStringAsFixed(2));
-      produto['quantidade'] = quantidade;
-      produto['valor_unitario'] = valorUnitario;
-      produto['valor_total'] = totalCalculado;
-    }
-
-    return null;
+    if (!_isDisposed) notifyListeners();
   }
 
   String? _validarDesconto() {
     final desconto = descontoTotalInformado;
-    if (desconto < 0) {
-      return 'O valor do desconto não pode ser negativo.';
-    }
-    if (desconto > valorTotalBruto) {
-      return 'O desconto não pode ser maior que o valor total da nota.';
-    }
+    if (desconto < 0) return 'O valor do desconto não pode ser negativo.';
+    if (desconto > valorTotalBruto) return 'O desconto não pode ser maior que o valor total da nota.';
     return null;
   }
 
   void _sincronizarValorTotalComProdutos() {
-    if (_produtos.isEmpty) return;
-    final total = _calcularTotalProdutos(_produtos);
-    valorTotalCtrl.text = total.toStringAsFixed(2);
+    if (_catalogVm.produtos.isEmpty) return;
+    valorTotalCtrl.text = _catalogVm.calcularTotalProdutos().toStringAsFixed(2);
   }
 
   String? _validarConferenciaComTotalDaFoto() {
-    if (_valorTotalFotoAnalisada == null || _produtos.isEmpty) {
-      return null;
-    }
+    if (_photoVm.valorTotalFotoAnalisada == null || _catalogVm.produtos.isEmpty) return null;
 
-    final totalItens = _calcularTotalProdutos(_produtos);
+    final totalItens = _catalogVm.calcularTotalProdutos();
     final desconto = descontoTotalInformado;
     final totalLiquido = totalItens - desconto;
-    final divergencia = (totalLiquido - _valorTotalFotoAnalisada!).abs();
-    _divergenciaTotalFotoItens = divergencia;
+    final divergencia = (totalLiquido - _photoVm.valorTotalFotoAnalisada!).abs();
+    _photoVm.setDivergenciaTotalFotoItens(divergencia);
 
     if (divergencia > 0.01) {
-      final descontoInfo = desconto > 0 ? ' - desconto R\$ ${desconto.toStringAsFixed(2)} = R\$ ${totalLiquido.toStringAsFixed(2)}' : '';
-      return 'A soma dos itens (R\$ ${totalItens.toStringAsFixed(2)}$descontoInfo) está diferente do total da foto (R\$ ${_valorTotalFotoAnalisada!.toStringAsFixed(2)}). Revise quantidade e preços dos produtos antes de salvar.';
+      final descontoInfo = desconto > 0
+          ? ' - desconto R\$ ${desconto.toStringAsFixed(2)} = R\$ ${totalLiquido.toStringAsFixed(2)}'
+          : '';
+      return 'A soma dos itens (R\$ ${totalItens.toStringAsFixed(2)}$descontoInfo) está diferente do total da foto (R\$ ${_photoVm.valorTotalFotoAnalisada!.toStringAsFixed(2)}). Revise quantidade e preços dos produtos antes de salvar.';
     }
 
     return null;
@@ -804,14 +439,10 @@ class NotaFormViewModel extends ChangeNotifier {
     const marcador = '[Conferência automática IA]';
     final linhas = textoAtual
         .split('\n')
-        .where((linha) => !linha.trim().startsWith(marcador))
-        .toList();
-
-    linhas.add(
-      '$marcador Total da foto: ${totalFoto.toStringAsFixed(2)} | Soma dos itens: ${totalItens.toStringAsFixed(2)}',
-    );
-
-    return linhas.where((linha) => linha.trim().isNotEmpty).join('\n');
+        .where((l) => !l.trim().startsWith(marcador))
+        .toList()
+      ..add('$marcador Total da foto: ${totalFoto.toStringAsFixed(2)} | Soma dos itens: ${totalItens.toStringAsFixed(2)}');
+    return linhas.where((l) => l.trim().isNotEmpty).join('\n');
   }
 
   ({double? totalBruto, double? totalLiquido}) _resolverTotaisFoto(
@@ -821,19 +452,13 @@ class NotaFormViewModel extends ChangeNotifier {
     final desconto = result.descontoTotal ?? 0.0;
 
     if (result.valorTotalBruto != null || result.valorTotalLiquido != null) {
-      return (
-        totalBruto: result.totalBrutoFoto,
-        totalLiquido: result.totalLiquidoFoto,
-      );
+      return (totalBruto: result.totalBrutoFoto, totalLiquido: result.totalLiquidoFoto);
     }
 
     final valorReportado = result.valorTotal;
     if (valorReportado == null) {
       final liquido = totalItens - desconto;
-      return (
-        totalBruto: totalItens,
-        totalLiquido: liquido < 0 ? 0 : liquido,
-      );
+      return (totalBruto: totalItens, totalLiquido: liquido < 0 ? 0 : liquido);
     }
 
     final totalLiquidoItens = totalItens - desconto;
@@ -841,105 +466,22 @@ class NotaFormViewModel extends ChangeNotifier {
     final diffLiquido = (totalLiquidoItens - valorReportado).abs();
 
     if (diffLiquido <= 0.01 || diffLiquido < diffBruto) {
-      return (
-        totalBruto: totalItens,
-        totalLiquido: valorReportado,
-      );
+      return (totalBruto: totalItens, totalLiquido: valorReportado);
     }
 
     final liquido = valorReportado - desconto;
-    return (
-      totalBruto: valorReportado,
-      totalLiquido: liquido < 0 ? 0 : liquido,
-    );
-  }
-
-  Future<List<Map<String, dynamic>>> _filtrarProdutosDoCatalogo(List<Map<String, dynamic>> produtosDaIa) async {
-    final itens = <Map<String, dynamic>>[];
-
-    for (final produtoIa in produtosDaIa) {
-      final nome = (produtoIa['nome'] ?? '').toString().trim();
-      if (nome.isEmpty) continue;
-
-      ProdutoEstoque? produtoCatalogo;
-
-      final idDireto = produtoIa['id_produto_estoque'] ?? produtoIa['id_produto'];
-      final idProduto = idDireto is int ? idDireto : int.tryParse((idDireto ?? '').toString());
-      if (idProduto != null) {
-        produtoCatalogo = await findProdutoCatalogoById(idProduto);
-      }
-
-      if (produtoCatalogo == null) {
-        for (final candidatoId in _extractCandidateProductIds(nome)) {
-          produtoCatalogo = await findProdutoCatalogoById(candidatoId);
-          if (produtoCatalogo != null) {
-            break;
-          }
-        }
-      }
-
-      produtoCatalogo ??= await findProdutoCatalogo(nome);
-
-      if (produtoCatalogo == null || produtoCatalogo.idProduto == null) {
-        continue;
-      }
-
-      final quantidade = double.tryParse(
-            (produtoIa['quantidade'] ?? '1').toString().replaceAll(',', '.'),
-          ) ??
-          1;
-
-      final valorUnitario = produtoCatalogo.valorPrecoVarejo ?? 0;
-
-      itens.add(
-        buildProdutoNotaFromCatalogo(
-          produto: produtoCatalogo,
-          quantidade: quantidade <= 0 ? 1 : quantidade,
-          valorUnitario: valorUnitario,
-        ),
-      );
-    }
-
-    return itens;
-  }
-
-  List<int> _extractCandidateProductIds(String nome) {
-    final ids = <int>[];
-    final matches = RegExp(r'\b(?:id|cod|codigo|produto)\s*[:#-]?\s*(\d{2,})\b', caseSensitive: false)
-        .allMatches(nome);
-
-    for (final match in matches) {
-      final id = int.tryParse(match.group(1) ?? '');
-      if (id != null && !ids.contains(id)) {
-        ids.add(id);
-      }
-    }
-
-    return ids;
+    return (totalBruto: valorReportado, totalLiquido: liquido < 0 ? 0 : liquido);
   }
 
   @override
   void dispose() {
     _isDisposed = true;
-    nomeClienteCtrl.removeListener(_onFieldChanged);
-    telefoneClienteCtrl.removeListener(_onFieldChanged);
-    numeroNotaCtrl.removeListener(_onFieldChanged);
-    serieNotaCtrl.removeListener(_onFieldChanged);
-    dataCompraCtrl.removeListener(_onFieldChanged);
-    descontoCtrl.removeListener(_onDiscountChanged);
-
-    nomeClienteCtrl.dispose();
-    documentoClienteCtrl.dispose();
-    telefoneClienteCtrl.dispose();
-    numeroNotaCtrl.dispose();
-    serieNotaCtrl.dispose();
-    chaveNfeCtrl.dispose();
-    dataCompraCtrl.dispose();
-    dataPrevistaRetiradaCtrl.dispose();
-    valorTotalCtrl.dispose();
-    descontoCtrl.dispose();
-    observacoesCtrl.dispose();
-    contatoIdCtrl.dispose();
+    _fieldsVm.removeListener(_notifySafe);
+    _photoVm.removeListener(_notifySafe);
+    _catalogVm.removeListener(_onCatalogChanged);
+    _fieldsVm.dispose();
+    _photoVm.dispose();
+    _catalogVm.dispose();
     super.dispose();
   }
 }

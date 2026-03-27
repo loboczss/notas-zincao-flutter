@@ -1,3 +1,5 @@
+import 'package:notas_zincao_flutter/constants/db_schema.dart';
+
 /// Modelo de domínio que representa o perfil de um usuário autenticado.
 class Profile {
   final String id;
@@ -24,35 +26,35 @@ class Profile {
 
   factory Profile.fromMap(Map<String, dynamic> map) {
     return Profile(
-      id: map['id'] as String,
-      authUid: map['auth_uid'] as String,
-      nome: map['nome'] as String?,
-      email: map['email'] as String?,
-      role: map['role'] as String?,
-      workspaces: map['workspaces'] != null
-          ? List<String>.from(map['workspaces'] as List)
+      id: map[ColsProfiles.id] as String,
+      authUid: map[ColsProfiles.authUid] as String,
+      nome: map[ColsProfiles.nome] as String?,
+      email: map[ColsProfiles.email] as String?,
+      role: map[ColsProfiles.role] as String?,
+      workspaces: map[ColsProfiles.workspaces] != null
+          ? List<String>.from(map[ColsProfiles.workspaces] as List)
           : null,
-      ultimoLogin: map['ultimo_login'] != null
-          ? DateTime.parse(map['ultimo_login'] as String)
+      ultimoLogin: map[ColsProfiles.ultimoLogin] != null
+          ? DateTime.parse(map[ColsProfiles.ultimoLogin] as String)
           : null,
-      fotoPerfil: map['foto_perfil'] as String?,
-      updatedAt: map['updated_at'] != null
-          ? DateTime.parse(map['updated_at'] as String)
+      fotoPerfil: map[ColsProfiles.fotoPerfil] as String?,
+      updatedAt: map[ColsProfiles.updatedAt] != null
+          ? DateTime.parse(map[ColsProfiles.updatedAt] as String)
           : null,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'auth_uid': authUid,
-      'nome': nome,
-      'email': email,
-      'role': role,
-      'workspaces': workspaces,
-      'ultimo_login': ultimoLogin?.toIso8601String(),
-      'foto_perfil': fotoPerfil,
-      'updated_at': updatedAt?.toIso8601String(),
+      ColsProfiles.id: id,
+      ColsProfiles.authUid: authUid,
+      ColsProfiles.nome: nome,
+      ColsProfiles.email: email,
+      ColsProfiles.role: role,
+      ColsProfiles.workspaces: workspaces,
+      ColsProfiles.ultimoLogin: ultimoLogin?.toIso8601String(),
+      ColsProfiles.fotoPerfil: fotoPerfil,
+      ColsProfiles.updatedAt: updatedAt?.toIso8601String(),
     };
   }
 

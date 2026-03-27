@@ -21,22 +21,58 @@ class ProdutoCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
 
+    final isHighlighted = produto.idProduto == 10;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.black.withValues(alpha: 0.04),
+        color: isHighlighted
+            ? cs.primary.withValues(alpha: isDark ? 0.08 : 0.05)
+            : (isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.04)),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.08),
+          color: isHighlighted
+              ? cs.primary.withValues(alpha: 0.4)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.08)),
+          width: isHighlighted ? 1.5 : 1,
         ),
+        boxShadow: isHighlighted ? [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ] : null,
       ),
-      child: Row(
+      child: Stack(
         children: [
+          if (isHighlighted)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'DESTAQUE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          Row(
+            children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,6 +161,8 @@ class ProdutoCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ],
+  ),
+);
   }
 }
