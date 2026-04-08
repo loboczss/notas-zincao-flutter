@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
 class HeaderNavTabs extends StatelessWidget {
@@ -57,7 +56,7 @@ class HeaderNavTabs extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: itemColor,

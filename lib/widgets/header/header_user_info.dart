@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
 class HeaderUserInfo extends StatelessWidget {
@@ -37,14 +36,14 @@ class HeaderUserInfo extends StatelessWidget {
             children: [
               Text(
                 nome ?? 'Usuário',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: colorScheme.onSurface,
                 ),
               ),
               Text(
                 role ?? 'Colaborador',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -61,7 +60,7 @@ class HeaderUserInfo extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 'Sair',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   color: AppColors.error,
                   fontWeight: FontWeight.w600,
                 ),

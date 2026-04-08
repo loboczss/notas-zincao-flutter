@@ -67,6 +67,17 @@ android {
         }
     }
 
+    // ABI splits only for APK builds — AAB handles ABI splitting via Play Store
+    val isBundleBuild = gradle.startParameter.taskNames.any { it.contains("bundle", ignoreCase = true) }
+    splits {
+        abi {
+            isEnable = !isBundleBuild
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         debug {
             // Keep the same signature as release to allow in-place updates during internal tests.
@@ -80,11 +91,12 @@ android {
             } else {
                 throw GradleException("android/key.properties ausente. Release deve ser gerado com assinatura de release.")
             }
-            packaging {
-                jniLibs {
-                    keepDebugSymbols += setOf("**/*.so")
-                }
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

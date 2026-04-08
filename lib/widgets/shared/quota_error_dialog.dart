@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
 /// Modal exibido quando a cota da API OpenAI está esgotada (erro 429 quota).
@@ -61,7 +60,7 @@ class QuotaErrorDialog extends StatelessWidget {
             Text(
               'IA temporariamente indisponível',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: cs.onSurface,
@@ -73,7 +72,7 @@ class QuotaErrorDialog extends StatelessWidget {
             Text(
               'O limite de uso da inteligência artificial foi atingido.\n\nEntre em contato com o desenvolvedor para reativar o serviço.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 14,
                 color: cs.onSurface.withValues(alpha: 0.7),
                 height: 1.5,
@@ -89,7 +88,7 @@ class QuotaErrorDialog extends StatelessWidget {
                   SnackBar(
                     content: Text(
                       'E-mail copiado!',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                      style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: AppColors.primary,
@@ -127,7 +126,7 @@ class QuotaErrorDialog extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       _devContact,
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: AppColors.primary,
@@ -161,7 +160,7 @@ class QuotaErrorDialog extends StatelessWidget {
                 ),
                 child: Text(
                   'Entendi',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),

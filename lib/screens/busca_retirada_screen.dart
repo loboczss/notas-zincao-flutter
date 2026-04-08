@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 
 class BuscaRetiradaScreen extends StatelessWidget {
@@ -19,13 +18,13 @@ class BuscaRetiradaScreen extends StatelessWidget {
           const SizedBox(height: 24),
           Text(
             'Efetuar Retirada',
-            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 12),
           Text(
             'Busque a nota na lista para iniciar\nou aguarde o leitor de QR Code.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: Colors.white54, fontSize: 16),
+            style: TextStyle(color: Colors.white54, fontSize: 16),
           ),
         ],
       ),

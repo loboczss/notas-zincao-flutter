@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/screens/forgot_password_screen.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/theme/theme_controller.dart';
@@ -143,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 18),
         Text(
           'Notas Zincão',
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
             color: cs.onSurface,
@@ -152,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 6),
         Text(
           'Gestão de notas de retirada',
-          style: GoogleFonts.inter(fontSize: 14, color: cs.onSurfaceVariant),
+          style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
         ),
       ],
     );
@@ -191,8 +190,8 @@ class _LoginScreenState extends State<LoginScreen>
               dividerColor: Colors.transparent,
               labelColor: cs.onPrimary,
               unselectedLabelColor: cs.onSurfaceVariant,
-              labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
-              unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14),
+              labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
               tabs: const [
                 Tab(text: 'Entrar'),
                 Tab(text: 'Cadastrar'),
@@ -601,7 +600,7 @@ class _SubmitButton extends StatelessWidget {
               )
             : Text(
                 label,
-                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
       ),
     );

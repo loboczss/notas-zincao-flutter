@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
@@ -124,8 +123,8 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
       borderRadius: radius,
       borderSide: BorderSide(color: AppColors.primary, width: 1.5),
     );
-    _fieldTextStyle = GoogleFonts.inter(color: _cs.onSurface, fontSize: 15);
-    _helperStyle = GoogleFonts.inter(
+    _fieldTextStyle = TextStyle(color: _cs.onSurface, fontSize: 15);
+    _helperStyle = TextStyle(
       color: _cs.onSurface.withValues(alpha: 0.45),
       fontSize: 11,
     );
@@ -286,7 +285,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
                         const SizedBox(width: 10),
                         Text(
                           _isEditing ? 'Editar Produto' : 'Novo Produto',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: _cs.onSurface,
@@ -398,7 +397,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
                                       ),
                                       Text(
                                         '${widget.produto!.quantidadeEstoque.toString().replaceAll('.', ',').replaceAll(RegExp(r',0$'), '')} $_embalagemSelecionada',
-                                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: _cs.onSurface),
+                                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _cs.onSurface),
                                       ),
                                     ],
                                   ),
@@ -436,7 +435,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
                                                   : _cs.onSurface.withValues(alpha: 0.6)),
                                           const SizedBox(width: 6),
                                           Text('Adicionar',
-                                              style: GoogleFonts.inter(
+                                              style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
                                                 color: !_modoDefinirQuantidade
@@ -475,7 +474,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
                                                   : _cs.onSurface.withValues(alpha: 0.6)),
                                           const SizedBox(width: 6),
                                           Text('Definir',
-                                              style: GoogleFonts.inter(
+                                              style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
                                                 color: _modoDefinirQuantidade
@@ -584,7 +583,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
                           )
                         : Text(
                             _isEditing ? 'Salvar Alterações' : 'Cadastrar Produto',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(
                                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                   ),
@@ -608,7 +607,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
   }) {
     final labelColor =
         isRequired ? AppColors.primary : _cs.onSurface.withValues(alpha: 0.7);
-    final labelStyle = GoogleFonts.inter(color: labelColor, fontSize: 13);
+    final labelStyle = TextStyle(color: labelColor, fontSize: 13);
 
     return TextField(
       controller: ctrl,
@@ -626,7 +625,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
         labelText: label,
         labelStyle: labelStyle,
         floatingLabelStyle:
-            GoogleFonts.inter(color: AppColors.primary, fontSize: 13),
+            TextStyle(color: AppColors.primary, fontSize: 13),
         helperText: helperText,
         helperStyle: _helperStyle,
         prefixIcon: prefixIcon != null
@@ -688,14 +687,14 @@ class _EmbalagemDropdownState extends State<_EmbalagemDropdown> {
       initialValue: _value,
       dropdownColor: widget.isDark ? const Color(0xFF1E1E24) : Colors.white,
       iconEnabledColor: widget.cs.onSurface.withValues(alpha: 0.7),
-      style: GoogleFonts.inter(color: widget.cs.onSurface, fontSize: 14),
+      style: TextStyle(color: widget.cs.onSurface, fontSize: 14),
       decoration: InputDecoration(
         labelText: 'Embalagem de saída *',
-        labelStyle: GoogleFonts.inter(color: AppColors.primary, fontSize: 13),
+        labelStyle: TextStyle(color: AppColors.primary, fontSize: 13),
         floatingLabelStyle:
-            GoogleFonts.inter(color: AppColors.primary, fontSize: 13),
+            TextStyle(color: AppColors.primary, fontSize: 13),
         helperText: 'Unidade usada ao registrar saída no estoque',
-        helperStyle: GoogleFonts.inter(
+        helperStyle: TextStyle(
           color: widget.cs.onSurface.withValues(alpha: 0.45),
           fontSize: 11,
         ),
@@ -754,7 +753,7 @@ class _SectionCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: cs.onSurface,

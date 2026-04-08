@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
@@ -107,7 +106,7 @@ class _NotaTextFieldState extends State<NotaTextField>
               children: [
                 Text(
                   widget.label,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: widget.isMissing
@@ -119,7 +118,7 @@ class _NotaTextFieldState extends State<NotaTextField>
                   const SizedBox(width: 6),
                   Text(
                     '• Corrigir',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: AppColors.error,
@@ -129,7 +128,7 @@ class _NotaTextFieldState extends State<NotaTextField>
                   const SizedBox(width: 6),
                   Text(
                     '• Obrigatório',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: AppColors.error,
@@ -154,7 +153,7 @@ class _NotaTextFieldState extends State<NotaTextField>
                   maxLines: widget.maxLines,
                   readOnly: widget.readOnly,
                   onTap: widget.onTap,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: cs.onSurface,
                     fontSize: 14,
                   ),
@@ -163,7 +162,7 @@ class _NotaTextFieldState extends State<NotaTextField>
                     filled: true,
                     fillColor: Colors.transparent,
                     hintText: widget.hint,
-                    hintStyle: GoogleFonts.inter(
+                    hintStyle: TextStyle(
                       color: cs.onSurfaceVariant.withValues(alpha: 0.85),
                       fontSize: 14,
                     ),
@@ -211,7 +210,7 @@ class _NotaTextFieldState extends State<NotaTextField>
               const SizedBox(height: 6),
               Text(
                 widget.errorText!,
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppColors.error,
@@ -309,8 +308,8 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
                       final option = options.elementAt(index);
                       return ListTile(
                         leading: const Icon(Icons.person, color: AppColors.primary),
-                        title: Text(option[ColsCrmZincao.nome] ?? 'Sem Nome', style: GoogleFonts.inter(color: cs.onSurface, fontWeight: FontWeight.w500)),
-                        subtitle: Text(option[ColsCrmZincao.contatoId] ?? '', style: GoogleFonts.inter(color: cs.onSurfaceVariant, fontSize: 13)),
+                        title: Text(option[ColsCrmZincao.nome] ?? 'Sem Nome', style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w500)),
+                        subtitle: Text(option[ColsCrmZincao.contatoId] ?? '', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
                         onTap: () => onSelected(option),
                       );
                     },
@@ -484,7 +483,7 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
         const SizedBox(width: 8),
         Text(
           title,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: cs.onSurface,
@@ -509,7 +508,7 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 12,
             color: cs.onSurfaceVariant,
             fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w500,
@@ -517,7 +516,7 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
         ),
         Text(
           textoValor,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: isHighlight ? 15 : 13,
             color: isHighlight ? AppColors.primary : cs.onSurface,
             fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,

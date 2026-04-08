@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/viewmodels/retirada_form_viewmodel.dart';
 
 class MultiplePhotoCapture extends StatelessWidget {
@@ -38,7 +37,7 @@ class MultiplePhotoCapture extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'Fotos de Comprovante',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: cs.onSurface,
@@ -49,7 +48,7 @@ class MultiplePhotoCapture extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Tire fotos do cliente retirando os produtos ou dos produtos que estão sendo retirados.',
-            style: GoogleFonts.inter(
+            style: TextStyle(
               fontSize: 13,
               color: cs.onSurface.withValues(alpha: 0.6),
             ),
@@ -88,7 +87,7 @@ class MultiplePhotoCapture extends StatelessWidget {
                   : const Icon(Icons.add_a_photo, size: 20),
               label: Text(
                 isCapturing ? 'Abrindo câmera...' : 'Adicionar Foto',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDark

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Barra de pesquisa para filtrar produtos por ID ou descrição.
 class ProdutoSearchBar extends StatelessWidget {
@@ -23,10 +22,10 @@ class ProdutoSearchBar extends StatelessWidget {
         return TextField(
           controller: controller,
           onChanged: onChanged,
-          style: GoogleFonts.inter(color: cs.onSurface, fontSize: 14),
+          style: TextStyle(color: cs.onSurface, fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Pesquisar por ID ou descrição...',
-            hintStyle: GoogleFonts.inter(
+            hintStyle: TextStyle(
               color: cs.onSurface.withValues(alpha: 0.5),
               fontSize: 13,
             ),

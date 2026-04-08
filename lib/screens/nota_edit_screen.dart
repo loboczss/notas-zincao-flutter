@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/services/nota_retirada_service.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
@@ -83,7 +82,7 @@ class _NotaEditScreenState extends State<NotaEditScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Editar Nota', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: colorScheme.onSurface, fontSize: 18)),
+        title: Text('Editar Nota', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface, fontSize: 18)),
         backgroundColor: colorScheme.surface,
         iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
@@ -132,7 +131,7 @@ class _NotaEditScreenState extends State<NotaEditScreen> {
                   ),
                   child: _isSaving
                     ? CircularProgressIndicator(color: colorScheme.onPrimary)
-                    : Text('Salvar Alterações', style: GoogleFonts.inter(color: colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+                    : Text('Salvar Alterações', style: TextStyle(color: colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
                 )
               )
             ]

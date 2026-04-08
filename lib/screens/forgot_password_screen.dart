@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 
@@ -147,7 +146,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             const SizedBox(height: 24),
             Text(
               'Recuperar senha',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: cs.onSurface,
@@ -156,7 +155,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             const SizedBox(height: 10),
             Text(
               'Informe seu e-mail e enviaremos um link para você criar uma nova senha.',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 14,
                 color: cs.onSurface.withValues(alpha: 0.65),
                 height: 1.6,
@@ -254,7 +253,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                             )
                           : Text(
                               'Enviar link de recuperação',
-                              style: GoogleFonts.inter(
+                              style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -303,7 +302,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         const SizedBox(height: 28),
         Text(
           'E-mail enviado!',
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
             color: cs.onSurface,
@@ -313,7 +312,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         Text(
           'Verifique sua caixa de entrada em\n${_emailController.text.trim()}',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 14,
             color: cs.onSurface.withValues(alpha: 0.65),
             height: 1.6,
@@ -323,7 +322,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         Text(
           'Siga o link no e-mail para criar uma nova senha.\nNão esqueça de verificar a pasta de spam.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 13,
             color: cs.onSurface.withValues(alpha: 0.5),
             height: 1.6,
@@ -346,7 +345,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             ),
             child: Text(
               'Voltar para o login',
-              style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
         ),

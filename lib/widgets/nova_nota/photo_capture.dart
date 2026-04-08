@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
 
@@ -51,7 +50,7 @@ class PhotoCapture extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'Envie a foto do cupom fiscal',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: cs.onSurface.withValues(alpha: 0.75),
@@ -60,7 +59,7 @@ class PhotoCapture extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'A IA vai preencher os dados automaticamente',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 12,
                       color: cs.onSurface.withValues(alpha: 0.45),
                     ),
@@ -107,7 +106,7 @@ class PhotoCapture extends StatelessWidget {
                           : const Icon(Icons.auto_awesome, size: 20),
                       label: Text(
                         isProcessing ? 'Analisando...' : 'Analisar com IA',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -162,7 +161,7 @@ class PhotoCapture extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'Analisando cupom...',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
@@ -188,7 +187,7 @@ class PhotoCapture extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Analisado',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -214,7 +213,7 @@ class PhotoCapture extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   'Toque para ampliar',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -303,7 +302,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: isDisabled ? disabledColor : enabledTextColor,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
@@ -89,7 +88,7 @@ class ProdutoCard extends StatelessWidget {
                         ),
                         child: Text(
                           '#${produto.idProduto}',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -101,7 +100,7 @@ class ProdutoCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         produto.descricao,
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           color: cs.onSurface,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -117,7 +116,7 @@ class ProdutoCard extends StatelessWidget {
                 // ── Linha: tipo + embalagem ──
                 Text(
                   'Tipo: ${produto.tipoProduto ?? '-'}  •  Embalagem: ${produto.embalagemSaida}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: cs.onSurface.withValues(alpha: 0.6),
                     fontSize: 12,
                   ),
@@ -128,7 +127,7 @@ class ProdutoCard extends StatelessWidget {
                 // ── Linha: quantidade em estoque ──
                 Text(
                   'Estoque: ${produto.quantidadeEstoque.toString().replaceAll(RegExp(r'\.0$'), '')} ${produto.embalagemSaida}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: produto.quantidadeEstoque > 0
                         ? AppColors.success
                         : AppColors.warning,
@@ -141,7 +140,7 @@ class ProdutoCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'Preço varejo: R\$ ${produto.valorPrecoVarejo!.toStringAsFixed(2).replaceAll('.', ',')}',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
                     ),
@@ -156,7 +155,7 @@ class ProdutoCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         'Depende do estoque: #${produto.idProdutoPai}',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           color: AppColors.primary.withValues(alpha: 0.8),
                           fontSize: 10,
                           fontWeight: FontWeight.w600,

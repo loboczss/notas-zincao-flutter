@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
@@ -88,7 +87,7 @@ class _ProdutosListState extends State<ProdutosList>
                 const SizedBox(width: 8),
                 Text(
                   'Produtos',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: colorScheme.onSurface,
@@ -104,7 +103,7 @@ class _ProdutosListState extends State<ProdutosList>
                     ),
                     child: Text(
                       '${produtos.length}',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
@@ -133,7 +132,7 @@ class _ProdutosListState extends State<ProdutosList>
             ),
             child: Text(
               produtoError,
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.error,
@@ -144,7 +143,7 @@ class _ProdutosListState extends State<ProdutosList>
         const SizedBox(height: 8),
         Text(
           'A IA pode sugerir produtos. Você pode editar nome, quantidade, unidade e preço livremente.',
-          style: GoogleFonts.inter(fontSize: 11, color: colorScheme.onSurfaceVariant),
+          style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         if (produtos.isEmpty)
@@ -166,11 +165,11 @@ class _ProdutosListState extends State<ProdutosList>
                 const SizedBox(height: 8),
                 Text(
                   'Nenhum produto adicionado',
-                  style: GoogleFonts.inter(fontSize: 13, color: colorScheme.onSurfaceVariant),
+                  style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
                 ),
                 Text(
                   'A IA pode sugerir e você pode ajustar livremente',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     fontSize: 11,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                   ),
@@ -216,7 +215,7 @@ class _ProdutosListState extends State<ProdutosList>
             child: Center(
               child: Text(
                 '${index + 1}',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -231,7 +230,7 @@ class _ProdutosListState extends State<ProdutosList>
               children: [
                 Text(
                   nome.toString(),
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: colorScheme.onSurface,
@@ -241,7 +240,7 @@ class _ProdutosListState extends State<ProdutosList>
                 const SizedBox(height: 2),
                 Text(
                   'Qtd: $qtd $embalagem${valorUnitario != null ? '  •  R\$ ${(valorUnitario as num).toStringAsFixed(2)}' : ''}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -254,7 +253,7 @@ class _ProdutosListState extends State<ProdutosList>
               padding: const EdgeInsets.only(right: 8),
               child: Text(
                 'R\$ ${(valorTotal as num).toStringAsFixed(2)}',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.success,
@@ -460,7 +459,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       title: Text(
         _isEditing ? 'Editar Produto' : 'Adicionar Produto',
-        style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+        style: TextStyle(fontWeight: FontWeight.w700, color: colorScheme.onSurface),
       ),
       content: SizedBox(
         width: 520,
@@ -490,7 +489,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(16),
-                              child: Text(_erroBusca!, style: GoogleFonts.inter(color: AppColors.error)),
+                              child: Text(_erroBusca!, style: TextStyle(color: AppColors.error)),
                             ),
                           )
                         : _resultados.isEmpty
@@ -499,7 +498,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                                   padding: const EdgeInsets.all(16),
                                   child: Text(
                                     'Nenhum produto encontrado.',
-                                    style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+                                    style: TextStyle(color: colorScheme.onSurfaceVariant),
                                   ),
                                 ),
                               )
@@ -515,19 +514,19 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                                     selectedTileColor: AppColors.primary.withValues(alpha: 0.10),
                                     title: Text(
                                       produto.descricao,
-                                      style: GoogleFonts.inter(
+                                      style: TextStyle(
                                         color: colorScheme.onSurface,
                                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                                       ),
                                     ),
                                     subtitle: Text(
                                       'ID ${produto.idProduto ?? '-'} • ${produto.embalagemSaida}',
-                                      style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant, fontSize: 12),
+                                      style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
                                     ),
                                     trailing: produto.valorPrecoVarejo != null
                                         ? Text(
                                             'R\$ ${produto.valorPrecoVarejo!.toStringAsFixed(2)}',
-                                            style: GoogleFonts.inter(
+                                            style: TextStyle(
                                               color: AppColors.success,
                                               fontWeight: FontWeight.w700,
                                             ),
@@ -564,7 +563,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                   ),
                   child: Text(
                     'Selecionado: ${_selectedProduto!.descricao} (${_selectedProduto!.embalagemSaida})',
-                    style: GoogleFonts.inter(color: colorScheme.onSurface, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600),
                   ),
                 ),
               if (_selectedProduto != null) const SizedBox(height: 12),
@@ -577,7 +576,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                       children: [
                         Text(
                           'Quantidade',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             color: colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -601,7 +600,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                       children: [
                         Text(
                           'Unidade',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             color: colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -624,7 +623,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                       children: [
                         Text(
                           'Valor unitário (R\$)',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             color: colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -649,7 +648,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancelar', style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant)),
+          child: Text('Cancelar', style: TextStyle(color: colorScheme.onSurfaceVariant)),
         ),
         ElevatedButton(
           onPressed: _salvar,
@@ -658,7 +657,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
             foregroundColor: colorScheme.onPrimary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Text(_isEditing ? 'Salvar' : 'Adicionar', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          child: Text(_isEditing ? 'Salvar' : 'Adicionar', style: TextStyle(fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -684,10 +683,10 @@ Widget _dialogField(
     keyboardType: inputType,
     onChanged: onChanged,
     readOnly: readOnly,
-    style: GoogleFonts.inter(color: textColor, fontSize: 14),
+    style: TextStyle(color: textColor, fontSize: 14),
     decoration: InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.inter(color: hintColor, fontSize: 14),
+      hintStyle: TextStyle(color: hintColor, fontSize: 14),
       prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18, color: iconColor) : null,
       filled: true,
       fillColor: fillColor,

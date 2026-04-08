@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:notas_zincao_flutter/constants/db_schema.dart';
@@ -269,7 +268,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                             children: [
                               Text(
                                 "Nota: ${nota.numeroNota}",
-                                style: GoogleFonts.inter(
+                                style: TextStyle(
                                   fontSize: 14,
                                   color: cs.onSurface.withValues(alpha: 0.6),
                                   fontWeight: FontWeight.bold,
@@ -278,7 +277,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                               const SizedBox(height: 4),
                               Text(
                                 nota.nomeCliente.toUpperCase(),
-                                style: GoogleFonts.inter(
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   color: cs.onSurface,
@@ -631,7 +630,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                         icon: Icon(Icons.outbox, color: cs.onPrimary),
                         label: Text(
                           'Fazer Nova Retirada',
-                          style: GoogleFonts.inter(color: cs.onPrimary, fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                       ),
                     ),

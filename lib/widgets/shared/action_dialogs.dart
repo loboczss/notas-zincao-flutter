@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
 class ConfirmationDialog extends StatelessWidget {
@@ -28,7 +27,7 @@ class ConfirmationDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: Text(
         title,
-        style: GoogleFonts.inter(
+        style: TextStyle(
           color: cs.onSurface,
           fontWeight: FontWeight.w800,
           fontSize: 20,
@@ -36,7 +35,7 @@ class ConfirmationDialog extends StatelessWidget {
       ),
       content: Text(
         message,
-        style: GoogleFonts.inter(
+        style: TextStyle(
           color: cs.onSurface.withValues(alpha: 0.75),
           fontSize: 14,
         ),
@@ -46,7 +45,7 @@ class ConfirmationDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
           child: Text(
             'Cancelar',
-            style: GoogleFonts.inter(
+            style: TextStyle(
               color: cs.onSurface.withValues(alpha: 0.5),
               fontWeight: FontWeight.w600,
             ),
@@ -64,7 +63,7 @@ class ConfirmationDialog extends StatelessWidget {
           ),
           child: Text(
             confirmLabel,
-            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -111,7 +110,7 @@ class ActionFeedbackDialog extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             title,
-            style: GoogleFonts.inter(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
               color: cs.onSurface,
@@ -120,7 +119,7 @@ class ActionFeedbackDialog extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             message,
-            style: GoogleFonts.inter(
+            style: TextStyle(
               fontSize: 14,
               color: cs.onSurface.withValues(alpha: 0.65),
             ),
@@ -139,7 +138,7 @@ class ActionFeedbackDialog extends StatelessWidget {
               ),
               child: Text(
                 'OK',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ),

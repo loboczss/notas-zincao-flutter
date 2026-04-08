@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
@@ -79,7 +78,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
               const SizedBox(width: 8),
               Text(
                 'Nota já cadastrada',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   fontWeight: FontWeight.w800,
                   color: colorScheme.onSurface,
                 ),
@@ -93,12 +92,12 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
               Text(
                 _viewModel.duplicateReason ??
                     'Já existe uma nota com o mesmo número ou a mesma chave NFe.',
-                style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               Text(
                 'Cliente: ${nota.nomeCliente}',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   color: colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
@@ -106,7 +105,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
               const SizedBox(height: 4),
               Text(
                 'Número: ${nota.numeroNota} | Série: ${nota.serieNota}',
-                style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -161,7 +160,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
             // Título
             Text(
               'Nova Nota de Retirada',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: colorScheme.onSurface,
@@ -170,7 +169,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
             const SizedBox(height: 4),
             Text(
               'Tire uma foto do cupom e a IA preencherá os dados.',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 13,
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -221,7 +220,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
                             _viewModel.status == NotaFormStatus.uploadingImage
                                 ? 'Enviando foto...'
                                 : 'Salvando...',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
@@ -230,7 +229,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
                       )
                     : Text(
                         'Salvar Nota',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -288,7 +287,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
             const SizedBox(height: 20),
             Text(
               syncPendente ? 'Nota salva offline!' : 'Nota Salva!',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: colorScheme.onSurface,
@@ -299,7 +298,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
               syncPendente
                   ? 'Sem internet agora. Vamos sincronizar automaticamente quando a conexão voltar.'
                   : 'A nota foi cadastrada com sucesso.',
-              style: GoogleFonts.inter(fontSize: 14, color: colorScheme.onSurfaceVariant),
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -324,7 +323,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
                 ),
                 child: Text(
                   'Cadastrar Outra',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ),

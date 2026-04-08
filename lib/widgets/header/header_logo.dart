@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 
 class HeaderLogo extends StatelessWidget {
@@ -25,7 +24,7 @@ class HeaderLogo extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           'Notas',
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,

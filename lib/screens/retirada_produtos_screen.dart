@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
@@ -94,14 +93,14 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
             Text(
               'Retirada registrada com sucesso!',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: colorScheme.onSurface, fontSize: 18),
+              style: TextStyle(color: colorScheme.onSurface, fontSize: 18),
             ),
             if (syncPendente) ...[
               const SizedBox(height: 12),
               Text(
                 'Sem conexão — será sincronizado automaticamente quando a internet estiver disponível.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: TextStyle(
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                   fontSize: 13,
                 ),
@@ -145,7 +144,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
         elevation: 0,
         title: Text(
           'Fazer Retirada',
-          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         centerTitle: true,
       ),
@@ -167,17 +166,17 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(widget.nota.nomeCliente,
-                          style: GoogleFonts.inter(fontSize: 18, color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
+                          style: TextStyle(fontSize: 18, color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text('Nota: ${widget.nota.numeroNota}',
-                          style: GoogleFonts.inter(fontSize: 14, color: colorScheme.onSurfaceVariant)),
+                          style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
                 
                 Text('Selecione os produtos e as quantidades que o cliente está levando agora:',
-                  style: GoogleFonts.inter(fontSize: 15, color: colorScheme.onSurfaceVariant)),
+                  style: TextStyle(fontSize: 15, color: colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 16),
 
                 // Lista de Produtos com Stepper
@@ -247,7 +246,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
               canConfirmRetirada
                   ? 'Confirmar Retirada'
                   : 'Sem permissão para retirada',
-              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
             icon: const Icon(Icons.check),
           ),
@@ -307,14 +306,14 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(nome, style: GoogleFonts.inter(fontSize: 16, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+                Text(nome, style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text('Comprados: $qtdOriginal $tipoUnidade | Já retirados: $qtdJaRetirada $tipoUnidade', 
-                    style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 if (estoqueDisponivel != null)
                   Text(
                     'Estoque disponível: ${estoqueDisponivel.toString().replaceAll('.0', '')} $tipoUnidade',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 12,
                       color: estoqueDisponivel <= 0.001 ? AppColors.warning : AppColors.success,
                       fontWeight: estoqueDisponivel <= 0.001 ? FontWeight.w600 : FontWeight.w500,
@@ -330,7 +329,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                         Expanded(
                           child: Text(
                             _viewModel.parentInfoPorIndex[index]!,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(
                               fontSize: 11,
                               color: AppColors.primary.withValues(alpha: 0.8),
                               fontStyle: FontStyle.italic,
@@ -349,7 +348,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
             ...[
                const Icon(Icons.check_circle, color: AppColors.success),
                const SizedBox(width: 8),
-               Text('Entregue', style: GoogleFonts.inter(color: AppColors.success, fontWeight: FontWeight.bold))
+               Text('Entregue', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold))
             ]
           else if (isSemEstoque)
             ...[
@@ -359,7 +358,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                 width: 108,
                 child: Text(
                   'Sem item no estoque',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: AppColors.warning,
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
@@ -388,7 +387,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                     enableSuggestions: false,
                     textAlign: TextAlign.center,
                     onChanged: (val) => _viewModel.setQuantidade(index, val),
-                    style: GoogleFonts.inter(fontSize: 16, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
                         contentPadding: EdgeInsets.zero,
                         filled: true,

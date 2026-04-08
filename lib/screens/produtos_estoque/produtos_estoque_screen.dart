@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/produtos_estoque_viewmodel.dart';
 import 'package:notas_zincao_flutter/widgets/produtos_estoque/produto_card.dart';
@@ -152,7 +151,7 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
                     _viewModel.query.isEmpty
                         ? '${produtos.length} produto${produtos.length != 1 ? 's' : ''} carregado${produtos.length != 1 ? 's' : ''}${_viewModel.temMais ? ' (carregando mais...)' : ''}'
                         : '${produtos.length} resultado${produtos.length != 1 ? 's' : ''} para "${_viewModel.query}"${_viewModel.temMais ? '...' : ''}',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.5),
                       fontSize: 12,
                     ),
@@ -199,7 +198,7 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
               icon: const Icon(Icons.add, color: Colors.white),
               label: Text(
                 'Cadastrar Produto',
-                style: GoogleFonts.inter(
+                style: TextStyle(
                     color: Colors.white, fontWeight: FontWeight.w700),
               ),
             )
@@ -224,7 +223,7 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
               ? 'Nenhum produto encontrado para\n"${_viewModel.query}"'
               : 'Nenhum produto cadastrado no estoque.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: cs.onSurface.withValues(alpha: 0.6)),
+          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6)),
         ),
         if (temPesquisa) ...[
           const SizedBox(height: 16),
