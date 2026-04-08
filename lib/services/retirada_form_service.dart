@@ -18,7 +18,15 @@ class RetiradaService {
     required Map<int, double> quantidadesRetiradas, // indice do produto -> quantidade que esta sendo retirada agora
     required List<String> comprovantesUrls,
     required String userId,
+    required String? userName,
+    required String? userRole,
   }) async {
+    final normalizedRole = (userRole ?? '').trim().toLowerCase();
+    final canMakeRetirada = normalizedRole == 'admin' || normalizedRole == 'colaborador';
+    if (!canMakeRetirada) {
+      throw StateError('Sem permissão para registrar retirada.');
+    }
+
     // 1. Clona a lista de produtos para atualizar as quantidades
     List<dynamic> novosProdutos = List.from(nota.produtos);
     bool checkTodasRetiradas = true;
@@ -41,12 +49,29 @@ class RetiradaService {
 
       double qtdRetiradaEfetiva = qtdRetirandoAgora <= saldoNaNota ? qtdRetirandoAgora : saldoNaNota;
 
-      final idProdutoEstoque = p[ColsProdutoNota.idProdutoEstoque];
+      var idProdutoEstoque = p[ColsProdutoNota.idProdutoEstoque];
+      if (qtdRetiradaEfetiva > 0 && idProdutoEstoque is! int) {
+        final idVinculado = await _resolverIdProdutoEstoqueExistente(p);
+        idProdutoEstoque = idVinculado;
+        p[ColsProdutoNota.idProdutoEstoque] = idVinculado;
+      }
+
       if (qtdRetiradaEfetiva > 0 && idProdutoEstoque is int) {
-        qtdRetiradaEfetiva = await _estoqueService.baixarEstoqueComFallback(
-          idProduto: idProdutoEstoque,
-          quantidadeSolicitada: qtdRetiradaEfetiva,
-        );
+        final prod = await _estoqueService.fetchById(idProdutoEstoque);
+        if (prod != null && prod.idProdutoPai != null) {
+          final double fator = (prod.fatorConversao ?? 1.0) <= 0 ? 1.0 : prod.fatorConversao!;
+          final double qtdParaPai = qtdRetiradaEfetiva * fator;
+          final retiradoPai = await _estoqueService.baixarEstoque(
+            idProduto: prod.idProdutoPai!,
+            quantidadeSolicitada: qtdParaPai,
+          );
+          qtdRetiradaEfetiva = retiradoPai / fator;
+        } else {
+          qtdRetiradaEfetiva = await _estoqueService.baixarEstoque(
+            idProduto: idProdutoEstoque,
+            quantidadeSolicitada: qtdRetiradaEfetiva,
+          );
+        }
       }
 
       final novaQtdRetirada = qtdJaRetiradaAnteriormente + qtdRetiradaEfetiva;
@@ -72,6 +97,7 @@ class RetiradaService {
       novoHistorico.add({
         'data': DateTime.now().toIso8601String(),
         'responsavel_id': userId,
+        'responsavel_nome': (userName ?? '').trim().isEmpty ? 'Usuario' : userName!.trim(),
         'fotos': comprovantesUrls,
         'itens_retirados': retiradasEfetivas.entries.map((e) => {
           'index': e.key,
@@ -88,6 +114,7 @@ class RetiradaService {
           ColsNotasRetirada.produtos: novosProdutos,
           ColsNotasRetirada.historicoRetiradas: novoHistorico,
           ColsNotasRetirada.statusRetirada: novoStatus,
+          ColsNotasRetirada.retiradaConfirmadaPor: userId,
           ColsNotasRetirada.atualizadoEm: DateTime.now().toIso8601String(),
           if (novoStatus == 'retirada' && nota.dataRetirada == null)
             ColsNotasRetirada.dataRetirada: DateTime.now().toIso8601String(),
@@ -97,5 +124,26 @@ class RetiradaService {
         .single();
 
     return NotaRetirada.fromMap(response);
+  }
+
+  Future<int> _resolverIdProdutoEstoqueExistente(Map<String, dynamic> produtoNota) async {
+    final nome = (produtoNota[ColsProdutoNota.nome] ?? '').toString().trim();
+    if (nome.isEmpty) {
+      throw StateError('Produto sem nome nao pode ser vinculado ao estoque.');
+    }
+
+    final encontrados = await _estoqueService.searchForNotePicker(query: nome, limit: 20);
+    for (final item in encontrados) {
+      if (item.idProduto != null && item.descricao.trim().toLowerCase() == nome.toLowerCase()) {
+        return item.idProduto!;
+      }
+    }
+    if (encontrados.isNotEmpty && encontrados.first.idProduto != null) {
+      return encontrados.first.idProduto!;
+    }
+
+    throw StateError(
+      'Produto "$nome" nao existe no estoque. Cadastre ou vincule o produto existente antes da retirada.',
+    );
   }
 }

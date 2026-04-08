@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:notas_zincao_flutter/router/app_router.dart';
 import 'package:notas_zincao_flutter/services/auth_service.dart';
+import 'package:notas_zincao_flutter/services/nota_sync_service.dart';
+import 'package:notas_zincao_flutter/services/pending_retirada_service.dart';
+import 'package:notas_zincao_flutter/services/retirada_sync_service.dart';
 import 'package:notas_zincao_flutter/supabase_config.dart';
 import 'package:notas_zincao_flutter/theme/app_theme.dart';
 import 'package:notas_zincao_flutter/theme/theme_controller.dart';
@@ -21,6 +25,22 @@ void main() async {
 
   // 4. Inicializa tema persistido (light/dark)
   await ThemeController.instance.init();
+
+  // 5. Processa retiradas salvas offline (se houver conexão)
+  final retiradaSyncService = RetiradaSyncService.instance;
+  final notaSyncService = NotaSyncService.instance;
+  await PendingRetiradaService().refreshCount();
+  retiradaSyncService.processarSeOnline().ignore();
+  notaSyncService.processarSeOnline().ignore();
+
+  // 6. Sincroniza sempre que a conectividade for restaurada
+  Connectivity().onConnectivityChanged.listen((results) {
+    final isOnline = results.any((r) => r != ConnectivityResult.none);
+    if (isOnline) {
+      retiradaSyncService.processar().ignore();
+      notaSyncService.processar().ignore();
+    }
+  });
 
   runApp(NotasZincaoApp(authViewModel: authViewModel));
 }

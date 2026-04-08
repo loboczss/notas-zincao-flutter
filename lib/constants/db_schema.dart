@@ -103,6 +103,12 @@ abstract class ColsEstoqueGeral {
 
   /// Preço de venda no varejo.
   static const valPrecoVarejo = 'VALPRECOVAREJO';
+
+  /// ID do produto pai do qual o estoque é deduzido.
+  static const idProdutoPai = 'IDPRODUTOPAI';
+
+  /// Multiplicador de dedução do produto pai (ex: 0.5).
+  static const fatorConversao = 'FATORCONVERSAO';
 }
 
 // ─── crm_zincao ───────────────────────────────────────────────────────────────

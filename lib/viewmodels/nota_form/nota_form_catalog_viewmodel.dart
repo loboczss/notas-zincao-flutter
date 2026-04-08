@@ -5,6 +5,7 @@ import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
 import 'package:notas_zincao_flutter/utils/parse_utils.dart' as parse;
 
 class NotaFormCatalogViewModel extends ChangeNotifier {
+
   final EstoqueProdutoService _estoqueService;
 
   NotaFormCatalogViewModel(this._estoqueService);
@@ -43,8 +44,7 @@ class NotaFormCatalogViewModel extends ChangeNotifier {
   }
 
   void addProduto(Map<String, dynamic> produto) {
-    if (produto[ColsProdutoNota.idProdutoEstoque] == null) return;
-    _produtos.add(produto);
+    _produtos.add(_normalizarProdutoLivre(produto));
     notifyListeners();
   }
 
@@ -57,8 +57,7 @@ class NotaFormCatalogViewModel extends ChangeNotifier {
 
   void updateProduto(int index, Map<String, dynamic> produto) {
     if (index >= 0 && index < _produtos.length) {
-      if (produto[ColsProdutoNota.idProdutoEstoque] == null) return;
-      _produtos[index] = produto;
+      _produtos[index] = _normalizarProdutoLivre(produto);
       notifyListeners();
     }
   }
@@ -76,30 +75,21 @@ class NotaFormCatalogViewModel extends ChangeNotifier {
     return double.parse(total.toStringAsFixed(2));
   }
 
-  String? validarProdutosAntesDeSalvar() {
-    if (_produtos.isEmpty) {
-      return 'Adicione pelo menos 1 produto antes de salvar a nota.';
-    }
-
+  Future<String?> validarProdutosAntesDeSalvar() async {
     for (var i = 0; i < _produtos.length; i++) {
-      final produto = _produtos[i];
-      final quantidade = toDouble(produto[ColsProdutoNota.quantidade]);
-      final valorUnitario = toDouble(produto[ColsProdutoNota.valorUnitario]);
-
-      if (quantidade <= 0) {
-        return 'A quantidade do produto ${i + 1} e invalida. Ajuste para um valor maior que zero.';
+      final produto = _normalizarProdutoLivre(_produtos[i]);
+      final nome = (produto[ColsProdutoNota.nome] ?? '').toString().trim();
+      if (nome.isEmpty) {
+        return 'Produto na linha ${i + 1} sem nome. Corrija antes de salvar.';
       }
 
-      if (valorUnitario < 0) {
-        return 'O valor unitario do produto ${i + 1} e invalido.';
+      try {
+        _produtos[i] = await _vincularProdutoAoEstoque(produto);
+      } catch (e) {
+        return _mensagemProdutoNaoVinculado(nome);
       }
-
-      final totalCalculado = double.parse((quantidade * valorUnitario).toStringAsFixed(2));
-      produto[ColsProdutoNota.quantidade] = quantidade;
-      produto[ColsProdutoNota.valorUnitario] = valorUnitario;
-      produto[ColsProdutoNota.valorTotal] = totalCalculado;
     }
-
+    notifyListeners();
     return null;
   }
 
@@ -194,67 +184,100 @@ class NotaFormCatalogViewModel extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> filtrarProdutosDoCatalogo(
     List<Map<String, dynamic>> produtosDaIa,
   ) async {
-    final validos = produtosDaIa
-        .where((p) => (p[ColsProdutoNota.nome] ?? '').toString().trim().isNotEmpty)
-        .toList();
-
-    if (validos.isEmpty) return [];
-
-    // Coleta todos os IDs candidatos sem tocar no banco
-    final todosIds = <int>{};
-    for (final p in validos) {
-      final idDireto = p[ColsProdutoNota.idProdutoEstoque];
-      final id = idDireto is int ? idDireto : int.tryParse((idDireto ?? '').toString());
-      if (id != null) todosIds.add(id);
-      todosIds.addAll(_extractCandidateProductIds((p[ColsProdutoNota.nome] ?? '').toString()));
-    }
-
-    // Uma única query para todos os IDs conhecidos
-    final porId = <int, ProdutoEstoque>{};
-    if (todosIds.isNotEmpty) {
-      final resultados = await _estoqueService.fetchByIds(todosIds.toList());
-      for (final prod in resultados) {
-        if (prod.idProduto != null) porId[prod.idProduto!] = prod;
-      }
-    }
-
-    // Resolve cada produto em paralelo — IDs saem do cache, nomes fazem 1 busca async
-    Future<ProdutoEstoque?> resolver(Map<String, dynamic> p) {
+    final processados = <Map<String, dynamic>>[];
+    for (final p in produtosDaIa) {
       final nome = (p[ColsProdutoNota.nome] ?? '').toString().trim();
+      if (nome.isEmpty) continue;
 
-      final idDireto = p[ColsProdutoNota.idProdutoEstoque];
-      final id = idDireto is int ? idDireto : int.tryParse((idDireto ?? '').toString());
-      if (id != null && porId.containsKey(id)) return Future.value(porId[id]);
-
-      for (final candidatoId in _extractCandidateProductIds(nome)) {
-        final encontrado = porId[candidatoId];
-        if (encontrado != null) return Future.value(encontrado);
+      final normalizado = _normalizarProdutoLivre(p);
+      try {
+        processados.add(await _vincularProdutoAoEstoque(normalizado));
+      } catch (_) {
+        // Mantem item sem vinculo para o usuario corrigir manualmente antes de salvar.
+        processados.add({
+          ...normalizado,
+          ColsProdutoNota.idProdutoEstoque: null,
+        });
       }
+    }
+    return processados;
+  }
 
-      return findProdutoCatalogo(nome);
+  Future<Map<String, dynamic>> _vincularProdutoAoEstoque(
+    Map<String, dynamic> produto,
+  ) async {
+    final normalizado = _normalizarProdutoLivre(produto);
+    final idExistente = _parseIdProduto(normalizado[ColsProdutoNota.idProdutoEstoque]);
+
+    ProdutoEstoque? produtoEstoque;
+    if (idExistente != null) {
+      produtoEstoque = await _estoqueService.fetchById(idExistente);
     }
 
-    final resolved = await Future.wait(validos.map(resolver));
-
-    final itens = <Map<String, dynamic>>[];
-    for (var i = 0; i < resolved.length; i++) {
-      final produtoCatalogo = resolved[i];
-      if (produtoCatalogo == null || produtoCatalogo.idProduto == null) continue;
-
-      final produtoIa = validos[i];
-      final quantidade = double.tryParse(
-            (produtoIa[ColsProdutoNota.quantidade] ?? '1').toString().replaceAll(',', '.'),
-          ) ??
-          1;
-
-      itens.add(buildProdutoNotaFromCatalogo(
-        produto: produtoCatalogo,
-        quantidade: quantidade <= 0 ? 1 : quantidade,
-        valorUnitario: produtoCatalogo.valorPrecoVarejo ?? 0,
-      ));
+    final nome = (normalizado[ColsProdutoNota.nome] ?? '').toString().trim();
+    if (produtoEstoque == null && nome.isNotEmpty) {
+      produtoEstoque = await findProdutoCatalogo(nome);
     }
 
-    return itens;
+    if (produtoEstoque == null) {
+      throw StateError(_mensagemProdutoNaoVinculado(nome));
+    }
+
+    final idProduto = produtoEstoque.idProduto;
+    if (idProduto == null) {
+      throw StateError('Produto encontrado sem ID valido no estoque.');
+    }
+
+    return {
+      ...normalizado,
+      ColsProdutoNota.idProdutoEstoque: idProduto,
+      ColsProdutoNota.nome: produtoEstoque.descricao,
+      ColsProdutoNota.tipoProduto:
+          (normalizado[ColsProdutoNota.tipoProduto] ?? produtoEstoque.tipoProduto),
+      ColsProdutoNota.tipoUnidade:
+          (normalizado[ColsProdutoNota.tipoUnidade] ?? produtoEstoque.embalagemSaida)
+              .toString(),
+      ColsProdutoNota.embalagem:
+          (normalizado[ColsProdutoNota.embalagem] ?? produtoEstoque.embalagemSaida)
+              .toString(),
+    };
+  }
+
+  int? _parseIdProduto(dynamic rawId) {
+    if (rawId is int) return rawId;
+    if (rawId == null) return null;
+    return int.tryParse(rawId.toString());
+  }
+
+  String _mensagemProdutoNaoVinculado(String nome) {
+    return 'Produto "$nome" nao existe no estoque. Abra a tela de Estoque, cadastre esse produto e volte para vincular antes de salvar a nota.';
+  }
+
+  Map<String, dynamic> _normalizarProdutoLivre(Map<String, dynamic> produto) {
+    final nome = (produto[ColsProdutoNota.nome] ?? '').toString().trim();
+    final quantidade = toDouble(produto[ColsProdutoNota.quantidade]);
+    final valorUnitario = toDouble(produto[ColsProdutoNota.valorUnitario]);
+    final valorTotalInformado = toDouble(produto[ColsProdutoNota.valorTotal]);
+    final totalCalculado = quantidade * valorUnitario;
+
+    final total = valorTotalInformado > 0
+        ? valorTotalInformado
+        : double.parse(totalCalculado.toStringAsFixed(2));
+
+    return {
+      ...produto,
+      ColsProdutoNota.idProdutoEstoque: produto[ColsProdutoNota.idProdutoEstoque],
+      ColsProdutoNota.nome: nome,
+      ColsProdutoNota.quantidade: quantidade,
+      ColsProdutoNota.valorUnitario: valorUnitario,
+      ColsProdutoNota.valorTotal: total,
+      ColsProdutoNota.tipoUnidade:
+          (produto[ColsProdutoNota.tipoUnidade] ?? produto[ColsProdutoNota.embalagem] ?? 'UN')
+              .toString(),
+      ColsProdutoNota.embalagem:
+          (produto[ColsProdutoNota.embalagem] ?? produto[ColsProdutoNota.tipoUnidade] ?? 'UN')
+              .toString(),
+    };
   }
 
   String _normalizeText(String value) {
@@ -305,18 +328,5 @@ class NotaFormCatalogViewModel extends ChangeNotifier {
     return candidatos;
   }
 
-  List<int> _extractCandidateProductIds(String nome) {
-    final ids = <int>[];
-    final matches = RegExp(r'\b(?:id|cod|codigo|produto)\s*[:#-]?\s*(\d{2,})\b', caseSensitive: false)
-        .allMatches(nome);
-
-    for (final match in matches) {
-      final id = int.tryParse(match.group(1) ?? '');
-      if (id != null && !ids.contains(id)) {
-        ids.add(id);
-      }
-    }
-
-    return ids;
-  }
 }
+

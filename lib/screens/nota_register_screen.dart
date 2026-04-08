@@ -258,6 +258,7 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
   }
 
   void _showSuccessDialog() {
+    final syncPendente = _viewModel.syncPendente;
     _isSuccessDialogOpen = true;
     showDialog(
       context: context,
@@ -274,14 +275,19 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.15),
+                color: (syncPendente ? AppColors.warning : AppColors.success)
+                    .withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded, size: 40, color: AppColors.success),
+              child: Icon(
+                syncPendente ? Icons.cloud_off_rounded : Icons.check_rounded,
+                size: 40,
+                color: syncPendente ? AppColors.warning : AppColors.success,
+              ),
             ),
             const SizedBox(height: 20),
             Text(
-              'Nota Salva!',
+              syncPendente ? 'Nota salva offline!' : 'Nota Salva!',
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -290,7 +296,9 @@ class _NotaRegisterScreenState extends State<NotaRegisterScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'A nota foi cadastrada com sucesso.',
+              syncPendente
+                  ? 'Sem internet agora. Vamos sincronizar automaticamente quando a conexão voltar.'
+                  : 'A nota foi cadastrada com sucesso.',
               style: GoogleFonts.inter(fontSize: 14, color: colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),

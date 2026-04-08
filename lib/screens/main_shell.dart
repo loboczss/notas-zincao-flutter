@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:notas_zincao_flutter/screens/nota_register_screen.dart';
 import 'package:notas_zincao_flutter/screens/notas_retirada_screen.dart';
+import 'package:notas_zincao_flutter/screens/pending_retiradas_screen.dart';
 import 'package:notas_zincao_flutter/screens/produtos_estoque/produtos_estoque_screen.dart';
 import 'package:notas_zincao_flutter/viewmodels/auth_viewmodel.dart';
 import 'package:notas_zincao_flutter/widgets/app_header.dart';
@@ -31,6 +32,14 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  void _abrirPendencias() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PendingRetiradasScreen(),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -42,6 +51,7 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       appBar: AppHeader(
         authViewModel: widget.authViewModel,
+        onTapPendencias: _abrirPendencias,
       ),
       body: PageView(
         controller: _pageController,

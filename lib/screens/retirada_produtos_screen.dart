@@ -74,6 +74,7 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
   }
 
   void _showSuccessDialog() {
+    final syncPendente = _viewModel.syncPendente;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -82,11 +83,31 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
         return AlertDialog(
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(Icons.check_circle, color: AppColors.success, size: 64),
-        content: Text(
-          'Retirada registrada com sucesso!',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: colorScheme.onSurface, fontSize: 18),
+        title: Icon(
+          syncPendente ? Icons.cloud_off : Icons.check_circle,
+          color: AppColors.success,
+          size: 64,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Retirada registrada com sucesso!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: colorScheme.onSurface, fontSize: 18),
+            ),
+            if (syncPendente) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Sem conexão — será sincronizado automaticamente quando a internet estiver disponível.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           SizedBox(
@@ -113,6 +134,9 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = _viewModel.status == RetiradaStatus.saving;
+    final userRole = widget.authViewModel.profile?.role;
+    final normalizedRole = (userRole ?? '').trim().toLowerCase();
+    final canConfirmRetirada = normalizedRole == 'admin' || normalizedRole == 'colaborador';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -193,7 +217,18 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
             onPressed: isLoading
                 ? null
                 : () {
-                    final userId = widget.authViewModel.profile?.id;
+                    if (!canConfirmRetirada) {
+                      AppErrorFeedback.show(
+                        context,
+                        message: 'Somente admin ou colaborador pode registrar retirada.',
+                        fallbackMessage: 'Você não tem permissão para esta ação.',
+                      );
+                      return;
+                    }
+
+                    final profile = widget.authViewModel.profile;
+                    final userId = profile?.authUid ?? profile?.id;
+                    final userName = profile?.nome ?? profile?.email;
                     if (userId == null) {
                       AppErrorFeedback.show(
                         context,
@@ -202,10 +237,16 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                       );
                       return;
                     }
-                    _viewModel.confirmarRetirada(userId);
+                    _viewModel.confirmarRetirada(
+                      userId,
+                      userRole: userRole,
+                      userName: userName,
+                    );
                   },
             label: Text(
-              'Confirmar Retirada',
+              canConfirmRetirada
+                  ? 'Confirmar Retirada'
+                  : 'Sem permissão para retirada',
               style: GoogleFonts.inter(fontWeight: FontWeight.bold),
             ),
             icon: const Icon(Icons.check),
@@ -277,6 +318,28 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
                       fontSize: 12,
                       color: estoqueDisponivel <= 0.001 ? AppColors.warning : AppColors.success,
                       fontWeight: estoqueDisponivel <= 0.001 ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                if (_viewModel.parentInfoPorIndex.containsKey(index))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.link, size: 12, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _viewModel.parentInfoPorIndex[index]!,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                              fontStyle: FontStyle.italic,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],

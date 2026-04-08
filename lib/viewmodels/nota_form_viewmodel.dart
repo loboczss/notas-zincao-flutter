@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
 import 'package:notas_zincao_flutter/services/nota_form_service.dart';
+import 'package:notas_zincao_flutter/services/pending_nota_service.dart';
+import 'package:notas_zincao_flutter/utils/field_validators.dart' as validators;
 import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_catalog_viewmodel.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_enums.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_fields_viewmodel.dart';
@@ -14,8 +17,11 @@ export 'package:notas_zincao_flutter/viewmodels/nota_form/nota_form_enums.dart';
 /// ViewModel para a tela de Nova Nota.
 /// Gerencia todo o fluxo: captura → IA → formulário → salvar.
 class NotaFormViewModel extends ChangeNotifier {
+  static const double _toleranciaConferenciaOk = 0.05;
+
   final NotaFormService _service = NotaFormService();
   final EstoqueProdutoService _estoqueService = EstoqueProdutoService();
+  final PendingNotaService _pendingNotaService = PendingNotaService();
   late final NotaFormFieldsViewModel _fieldsVm;
   late final NotaFormPhotoViewModel _photoVm;
   late final NotaFormCatalogViewModel _catalogVm;
@@ -38,12 +44,17 @@ class NotaFormViewModel extends ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+  bool _syncPendente = false;
+  bool get syncPendente => _syncPendente;
 
   NotaRetirada? _notaDuplicada;
   NotaRetirada? get notaDuplicada => _notaDuplicada;
 
   String? _duplicateReason;
   String? get duplicateReason => _duplicateReason;
+
+  final Map<CampoErroValidacao, String> _fieldErrors = {};
+  Map<CampoErroValidacao, String> get fieldErrors => Map.unmodifiable(_fieldErrors);
 
   File? get selectedImage => _photoVm.selectedImage;
   String? get uploadedImageUrl => _photoVm.uploadedImageUrl;
@@ -52,6 +63,9 @@ class NotaFormViewModel extends ChangeNotifier {
   double? get valorTotalFotoAnalisada => _photoVm.valorTotalFotoAnalisada;
   double? get divergenciaTotalFotoItens => _photoVm.divergenciaTotalFotoItens;
   bool get quotaExceeded => _photoVm.quotaExceeded;
+
+  bool hasFieldError(CampoErroValidacao campo) => _fieldErrors.containsKey(campo);
+  String? getFieldError(CampoErroValidacao campo) => _fieldErrors[campo];
 
   void clearQuotaError() {
     _photoVm.clearQuotaError();
@@ -112,6 +126,7 @@ class NotaFormViewModel extends ChangeNotifier {
     }
 
     _setStatus(NotaFormStatus.analyzingReceipt);
+    _clearFieldErrors();
     _fieldsVm.clearMissingFields();
 
     try {
@@ -135,6 +150,12 @@ class NotaFormViewModel extends ChangeNotifier {
       }
       descontoCtrl.text = (result.descontoTotal ?? 0).toStringAsFixed(2);
       if (result.observacoes != null) observacoesCtrl.text = result.observacoes ?? '';
+      if (result.warnings.isNotEmpty) {
+        observacoesCtrl.text = _appendIaWarnings(
+          observacoesCtrl.text,
+          result.warnings,
+        );
+      }
 
       if (result.produtos.isNotEmpty) {
         _catalogVm.setProdutos(await _catalogVm.filtrarProdutosDoCatalogo(result.produtos));
@@ -186,35 +207,70 @@ class NotaFormViewModel extends ChangeNotifier {
   /// Salva a nota no Supabase (upload da foto + inserção da nota).
   Future<void> saveNota(String ownerUserId) async {
     if (_isDisposed) return;
+    _clearFieldErrors();
     _fieldsVm.clearMissingFields();
     _fieldsVm.checkMissingFields();
     _notaDuplicada = null;
     _duplicateReason = null;
 
     if (_fieldsVm.missingFields.isNotEmpty) {
+      _marcarErrosCamposObrigatorios();
       _setError('Preencha os campos obrigatórios destacados em vermelho.');
       return;
     }
 
-    final erroProdutos = _catalogVm.validarProdutosAntesDeSalvar();
-    if (erroProdutos != null) { _setError(erroProdutos); return; }
+    final erroProdutos = await _catalogVm.validarProdutosAntesDeSalvar();
+    if (erroProdutos != null) {
+      _setFieldError(CampoErroValidacao.produtos, erroProdutos);
+      _setError(erroProdutos);
+      return;
+    }
+
+    final erroCampos = _normalizarEValidarCamposDeterministicos();
+    if (erroCampos != null) { _setError(erroCampos); return; }
 
     final erroDesconto = _validarDesconto();
-    if (erroDesconto != null) { _setError(erroDesconto); return; }
+    if (erroDesconto != null) {
+      _setFieldError(CampoErroValidacao.desconto, erroDesconto);
+      _setError('O campo de desconto precisa ser corrigido.');
+      return;
+    }
 
     final erroConferencia = _validarConferenciaComTotalDaFoto();
-    if (erroConferencia != null) { _setError(erroConferencia); return; }
+    if (erroConferencia != null) {
+      // Não bloqueia salvamento por divergência de produtos.
+      observacoesCtrl.text = _appendConferenciaAutomatica(
+        observacoesCtrl.text,
+        totalFoto: _photoVm.valorTotalFotoAnalisada ?? 0,
+        totalItens: _catalogVm.calcularTotalProdutos() - descontoTotalInformado,
+      );
+    }
 
-    if (await _verificarDuplicata()) return;
+    final connectivity = await Connectivity().checkConnectivity();
+    final isOffline = connectivity.every((r) => r == ConnectivityResult.none);
+
+    if (!isOffline && await _verificarDuplicata()) return;
 
     _setStatus(NotaFormStatus.saving);
     try {
-      await _uploadPhotoIfNeeded(ownerUserId);
-
       final dataCompra = _parseDate(dataCompraCtrl.text);
       if (dataCompra == null) throw Exception('Data de compra inválida');
       final dataPrevista = _parseDate(dataPrevistaRetiradaCtrl.text);
       final valorTotal = _calcularValorTotal();
+
+      if (isOffline) {
+        await _saveOffline(
+          ownerUserId: ownerUserId,
+          dataCompra: dataCompra,
+          dataPrevistaRetirada: dataPrevista,
+          valorTotal: valorTotal,
+        );
+        _syncPendente = true;
+        _setStatus(NotaFormStatus.success);
+        return;
+      }
+
+      await _uploadPhotoIfNeeded(ownerUserId);
 
       await _service.upsertCrmContact(
         telefone: telefoneClienteCtrl.text,
@@ -241,11 +297,49 @@ class NotaFormViewModel extends ChangeNotifier {
         contatoId: contatoIdCtrl.text.isNotEmpty ? contatoIdCtrl.text : null,
       );
 
+      _syncPendente = false;
       _setStatus(NotaFormStatus.success);
     } catch (e, st) {
       debugPrint('❌ [saveNota] Erro ao salvar: $e\n$st');
       _setError('Erro ao salvar nota: $e');
     }
+  }
+
+  Future<void> _saveOffline({
+    required String ownerUserId,
+    required DateTime dataCompra,
+    required DateTime? dataPrevistaRetirada,
+    required double? valorTotal,
+  }) async {
+    final pendingId = 'nota_${DateTime.now().millisecondsSinceEpoch}';
+    final localImagePath = await _pendingNotaService.persistImage(
+      _photoVm.selectedImage,
+      pendingId,
+    );
+
+    final item = PendingNotaItem(
+      id: pendingId,
+      ownerUserId: ownerUserId,
+      nomeCliente: nomeClienteCtrl.text,
+      numeroNota: numeroNotaCtrl.text,
+      dataCompraIso: dataCompra.toIso8601String(),
+      fotoLocalPath: localImagePath,
+      documentoCliente:
+          documentoClienteCtrl.text.isNotEmpty ? documentoClienteCtrl.text : null,
+      telefoneCliente:
+          telefoneClienteCtrl.text.isNotEmpty ? telefoneClienteCtrl.text : null,
+      serieNota: serieNotaCtrl.text.isNotEmpty ? serieNotaCtrl.text : '1',
+      chaveNfe: chaveNfeCtrl.text.isNotEmpty ? chaveNfeCtrl.text : null,
+      dataPrevistaRetiradaIso: dataPrevistaRetirada?.toIso8601String(),
+      produtos: _catalogVm.produtos,
+      valorTotal: valorTotal,
+      descontoTotal: descontoTotalInformado,
+      observacoes: observacoesCtrl.text.isNotEmpty ? observacoesCtrl.text : null,
+      contatoId: contatoIdCtrl.text.isNotEmpty ? contatoIdCtrl.text : null,
+      createdAt: DateTime.now(),
+    );
+
+    await _pendingNotaService.add(item);
   }
 
   /// Reseta o formulário para cadastrar outra nota.
@@ -254,6 +348,8 @@ class NotaFormViewModel extends ChangeNotifier {
     _catalogVm.clearProdutos();
     _notaDuplicada = null;
     _duplicateReason = null;
+    _syncPendente = false;
+    _clearFieldErrors();
     _fieldsVm.resetFields();
     _setStatus(NotaFormStatus.idle);
   }
@@ -378,6 +474,7 @@ class NotaFormViewModel extends ChangeNotifier {
   }
 
   void _onCatalogChanged() {
+    _fieldErrors.remove(CampoErroValidacao.produtos);
     _sincronizarValorTotalComProdutos();
     _notifySafe();
   }
@@ -421,14 +518,113 @@ class NotaFormViewModel extends ChangeNotifier {
     final divergencia = (totalLiquido - _photoVm.valorTotalFotoAnalisada!).abs();
     _photoVm.setDivergenciaTotalFotoItens(divergencia);
 
-    if (divergencia > 0.01) {
-      final descontoInfo = desconto > 0
-          ? ' - desconto R\$ ${desconto.toStringAsFixed(2)} = R\$ ${totalLiquido.toStringAsFixed(2)}'
-          : '';
-      return 'A soma dos itens (R\$ ${totalItens.toStringAsFixed(2)}$descontoInfo) está diferente do total da foto (R\$ ${_photoVm.valorTotalFotoAnalisada!.toStringAsFixed(2)}). Revise quantidade e preços dos produtos antes de salvar.';
+    if (divergencia <= _toleranciaConferenciaOk) return null;
+
+    final descontoInfo = desconto > 0
+        ? ' - desconto R\$ ${desconto.toStringAsFixed(2)} = R\$ ${totalLiquido.toStringAsFixed(2)}'
+        : '';
+    return 'A soma dos itens (R\$ ${totalItens.toStringAsFixed(2)}$descontoInfo) está diferente do total da foto (R\$ ${_photoVm.valorTotalFotoAnalisada!.toStringAsFixed(2)}).';
+  }
+
+  String? _normalizarEValidarCamposDeterministicos() {
+    final documentoOriginal = documentoClienteCtrl.text.trim();
+    if (documentoOriginal.isNotEmpty) {
+      final doc = validators.normalizeDocumento(documentoOriginal);
+      if (doc == null) {
+        _setFieldError(
+          CampoErroValidacao.documentoCliente,
+          'Documento inválido. Informe CPF (11 dígitos) ou CNPJ (14 dígitos) válido.',
+        );
+        return 'Documento do cliente invalido. Informe CPF (11 digitos) ou CNPJ (14 digitos) valido.';
+      }
+      documentoClienteCtrl.text = doc;
     }
 
+    final telefoneOriginal = telefoneClienteCtrl.text.trim();
+    final telefone = validators.normalizePhoneBr(telefoneOriginal);
+    if (telefone == null) {
+      _setFieldError(
+        CampoErroValidacao.telefoneCliente,
+        'Telefone inválido. Use DDD + número (10 ou 11 dígitos).',
+      );
+      return 'Telefone invalido. Informe DDD + numero (10 ou 11 digitos).';
+    }
+    telefoneClienteCtrl.text = telefone;
+
+    final chaveOriginal = chaveNfeCtrl.text.trim();
+    if (chaveOriginal.isEmpty) {
+      _setFieldError(
+        CampoErroValidacao.chaveNfe,
+        'Preencha a chave de acesso da NFe (44 dígitos).',
+      );
+      return 'Chave de acesso obrigatoria. Informe os 44 digitos da NFe.';
+    }
+
+    final chave = validators.normalizeChaveNfe(chaveOriginal);
+    if (chave == null) {
+      _setFieldError(
+        CampoErroValidacao.chaveNfe,
+        'Chave NFe inválida. A chave deve ter exatamente 44 dígitos.',
+      );
+      return 'Chave NFe invalida. A chave deve ter 44 digitos.';
+    }
+    chaveNfeCtrl.text = chave;
+
+    final dataNormalizada = validators.normalizeIsoDate(dataCompraCtrl.text.trim());
+    if (dataNormalizada == null) {
+      _setFieldError(
+        CampoErroValidacao.dataCompra,
+        'Data inválida. Toque no campo e selecione uma data válida.',
+      );
+      return 'Data de compra invalida. Use um formato valido, como DD/MM/AAAA.';
+    }
+    dataCompraCtrl.text = dataNormalizada;
+
     return null;
+  }
+
+  void _setFieldError(CampoErroValidacao campo, String message) {
+    _fieldErrors[campo] = message;
+  }
+
+  void _clearFieldErrors() {
+    _fieldErrors.clear();
+  }
+
+  void _marcarErrosCamposObrigatorios() {
+    if (_fieldsVm.missingFields.contains(CampoObrigatorio.nomeCliente)) {
+      _setFieldError(CampoErroValidacao.nomeCliente, 'Preencha o nome do cliente.');
+    }
+    if (_fieldsVm.missingFields.contains(CampoObrigatorio.telefoneCliente)) {
+      _setFieldError(CampoErroValidacao.telefoneCliente, 'Preencha o telefone do cliente.');
+    }
+    if (_fieldsVm.missingFields.contains(CampoObrigatorio.numeroNota)) {
+      _setFieldError(CampoErroValidacao.numeroNota, 'Preencha o número da nota fiscal.');
+    }
+    if (_fieldsVm.missingFields.contains(CampoObrigatorio.serieNota)) {
+      _setFieldError(CampoErroValidacao.serieNota, 'Preencha a série da nota fiscal.');
+    }
+    if (_fieldsVm.missingFields.contains(CampoObrigatorio.chaveNfe)) {
+      _setFieldError(CampoErroValidacao.chaveNfe, 'Preencha a chave de acesso da NFe (44 dígitos).');
+    }
+    if (_fieldsVm.missingFields.contains(CampoObrigatorio.dataCompra)) {
+      _setFieldError(CampoErroValidacao.dataCompra, 'Preencha a data da compra.');
+    }
+  }
+
+  String _appendIaWarnings(String textoAtual, List<String> warnings) {
+    if (warnings.isEmpty) return textoAtual;
+    const marcador = '[Avisos IA]';
+    final base = textoAtual
+        .split('\n')
+        .where((l) => !l.trim().startsWith(marcador))
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    final textoWarn = warnings.map((w) => w.trim()).where((w) => w.isNotEmpty).join(' | ');
+    if (textoWarn.isNotEmpty) {
+      base.add('$marcador $textoWarn');
+    }
+    return base.join('\n');
   }
 
   String _appendConferenciaAutomatica(

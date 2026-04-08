@@ -19,6 +19,7 @@ class NotaTextField extends StatefulWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final FocusNode? focusNode;
+  final String? errorText;
 
   const NotaTextField({
     super.key,
@@ -32,6 +33,7 @@ class NotaTextField extends StatefulWidget {
     this.readOnly = false,
     this.onTap,
     this.focusNode,
+    this.errorText,
   });
 
   @override
@@ -58,9 +60,11 @@ class _NotaTextFieldState extends State<NotaTextField>
   @override
   void didUpdateWidget(covariant NotaTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isMissing && !oldWidget.isMissing) {
+    final shouldBlink = widget.isMissing || widget.errorText != null;
+    final wasBlinking = oldWidget.isMissing || oldWidget.errorText != null;
+    if (shouldBlink && !wasBlinking) {
       _blinkController.repeat(reverse: true);
-    } else if (!widget.isMissing && oldWidget.isMissing) {
+    } else if (!shouldBlink && wasBlinking) {
       _blinkController.stop();
       _blinkController.reset();
     }
@@ -79,7 +83,8 @@ class _NotaTextFieldState extends State<NotaTextField>
     return AnimatedBuilder(
       animation: _blinkAnimation,
       builder: (context, child) {
-        final borderColor = widget.isMissing
+        final hasError = widget.isMissing || widget.errorText != null;
+        final borderColor = hasError
             ? Color.lerp(
                 Colors.transparent,
                 AppColors.error,
@@ -87,7 +92,7 @@ class _NotaTextFieldState extends State<NotaTextField>
               )!
           : cs.outlineVariant;
 
-        final bgColor = widget.isMissing
+        final bgColor = hasError
             ? Color.lerp(
             cs.surfaceContainerHighest,
                 AppColors.error.withValues(alpha: 0.08),
@@ -107,10 +112,20 @@ class _NotaTextFieldState extends State<NotaTextField>
                     fontWeight: FontWeight.w600,
                     color: widget.isMissing
                         ? AppColors.error
-                          : cs.onSurfaceVariant,
+                        : (widget.errorText != null ? AppColors.error : cs.onSurfaceVariant),
                   ),
                 ),
-                if (widget.isMissing) ...[
+                if (widget.errorText != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '• Corrigir',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ] else if (widget.isMissing) ...[
                   const SizedBox(width: 6),
                   Text(
                     '• Obrigatório',
@@ -128,7 +143,7 @@ class _NotaTextFieldState extends State<NotaTextField>
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: borderColor, width: widget.isMissing ? 1.5 : 1),
+                border: Border.all(color: borderColor, width: hasError ? 1.5 : 1),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
@@ -192,6 +207,17 @@ class _NotaTextFieldState extends State<NotaTextField>
                 ),
               ),
             ),
+            if (widget.errorText != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                widget.errorText!,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -260,7 +286,9 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
               label: 'Nome do Cliente',
               hint: 'Digite para buscar no CRM...',
               icon: Icons.person_rounded,
-              isMissing: missing.contains(CampoObrigatorio.nomeCliente),
+              isMissing: missing.contains(CampoObrigatorio.nomeCliente) ||
+                  viewModel.hasFieldError(CampoErroValidacao.nomeCliente),
+              errorText: viewModel.getFieldError(CampoErroValidacao.nomeCliente),
             );
           },
           optionsViewBuilder: (context, onSelected, options) {
@@ -301,6 +329,8 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
                 label: 'CPF/CNPJ',
                 hint: 'Documento',
                 icon: Icons.badge_outlined,
+                isMissing: viewModel.hasFieldError(CampoErroValidacao.documentoCliente),
+                errorText: viewModel.getFieldError(CampoErroValidacao.documentoCliente),
               ),
             ),
             const SizedBox(width: 12),
@@ -310,7 +340,9 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
                 label: 'Telefone',
                 hint: '(00) 00000-0000',
                 icon: Icons.phone_rounded,
-                isMissing: missing.contains(CampoObrigatorio.telefoneCliente),
+                isMissing: missing.contains(CampoObrigatorio.telefoneCliente) ||
+                    viewModel.hasFieldError(CampoErroValidacao.telefoneCliente),
+                errorText: viewModel.getFieldError(CampoErroValidacao.telefoneCliente),
                 keyboardType: TextInputType.phone,
               ),
             ),
@@ -331,7 +363,9 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
                 label: 'Número da Nota',
                 hint: '000001',
                 icon: Icons.numbers_rounded,
-                isMissing: missing.contains(CampoObrigatorio.numeroNota),
+                isMissing: missing.contains(CampoObrigatorio.numeroNota) ||
+                    viewModel.hasFieldError(CampoErroValidacao.numeroNota),
+                errorText: viewModel.getFieldError(CampoErroValidacao.numeroNota),
                 keyboardType: TextInputType.number,
               ),
             ),
@@ -341,7 +375,9 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
                 controller: viewModel.serieNotaCtrl,
                 label: 'Série',
                 hint: '1',
-                isMissing: missing.contains(CampoObrigatorio.serieNota),
+                isMissing: missing.contains(CampoObrigatorio.serieNota) ||
+                    viewModel.hasFieldError(CampoErroValidacao.serieNota),
+                errorText: viewModel.getFieldError(CampoErroValidacao.serieNota),
                 keyboardType: TextInputType.number,
               ),
             ),
@@ -353,6 +389,8 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
           label: 'Chave NFe',
           hint: 'Chave de acesso da nota fiscal',
           icon: Icons.vpn_key_rounded,
+          isMissing: viewModel.hasFieldError(CampoErroValidacao.chaveNfe),
+          errorText: viewModel.getFieldError(CampoErroValidacao.chaveNfe),
         ),
         const SizedBox(height: 14),
         Row(
@@ -363,7 +401,9 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
                 label: 'Data da Compra',
                 hint: 'YYYY-MM-DD',
                 icon: Icons.calendar_today_rounded,
-                isMissing: missing.contains(CampoObrigatorio.dataCompra),
+                isMissing: missing.contains(CampoObrigatorio.dataCompra) ||
+                    viewModel.hasFieldError(CampoErroValidacao.dataCompra),
+                errorText: viewModel.getFieldError(CampoErroValidacao.dataCompra),
                 readOnly: true,
                 onTap: () => _selectDate(context, viewModel.dataCompraCtrl),
               ),
@@ -400,6 +440,8 @@ class _NotaFormFieldsState extends State<NotaFormFields> {
           label: 'Valor do Desconto',
           hint: '0.00',
           icon: Icons.percent_rounded,
+          isMissing: viewModel.hasFieldError(CampoErroValidacao.desconto),
+          errorText: viewModel.getFieldError(CampoErroValidacao.desconto),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
         const SizedBox(height: 12),

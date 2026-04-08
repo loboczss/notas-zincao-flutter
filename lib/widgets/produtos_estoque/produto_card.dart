@@ -147,6 +147,25 @@ class ProdutoCard extends StatelessWidget {
                     ),
                   ),
                 ],
+
+                if (produto.idProdutoPai != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.link, size: 12, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Depende do estoque: #${produto.idProdutoPai}',
+                        style: GoogleFonts.inter(
+                          color: AppColors.primary.withValues(alpha: 0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

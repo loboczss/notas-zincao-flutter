@@ -63,6 +63,7 @@ class NotasTableView extends StatelessWidget {
             DataColumn(label: Text('Série')),
             DataColumn(label: Text('Data Compra')),
             DataColumn(label: Text('Valor Total')),
+            DataColumn(label: Text('Cadastrado por')),
             DataColumn(label: Text('Status')),
           ],
           rows: notas.map((nota) {
@@ -77,6 +78,7 @@ class NotasTableView extends StatelessWidget {
                 DataCell(Text(nota.serieNota)),
                 DataCell(Text(dateFormat.format(nota.dataCompra))),
                 DataCell(Text(nota.valorTotal != null ? currencyFormat.format(nota.valorTotal) : '-')),
+                DataCell(Text(nota.cadastradoPorNome ?? '—')),
                 DataCell(StatusBadge(status: nota.statusRetirada)),
               ],
             );
@@ -143,6 +145,17 @@ class _CardItem extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Nota: ${nota.numeroNota} (Série ${nota.serieNota})',
+                    style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 13),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.person_outline, size: 16, color: cs.onSurface.withValues(alpha: 0.5)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Por: ${nota.cadastradoPorNome ?? '—'}',
                     style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 13),
                   ),
                 ],

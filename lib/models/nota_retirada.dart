@@ -66,6 +66,9 @@ class NotaRetirada {
   final String? comprovanteRetiradaUrl;
   final DateTime criadoEm;
 
+  /// Nome do usuário que cadastrou a nota (campo transiente — não salvo no BD).
+  final String? cadastradoPorNome;
+
   const NotaRetirada({
     required this.id,
     required this.ownerUserId,
@@ -88,6 +91,7 @@ class NotaRetirada {
     this.retiradaConfirmadaPor,
     this.comprovanteRetiradaUrl,
     required this.criadoEm,
+    this.cadastradoPorNome,
   });
 
   factory NotaRetirada.fromMap(Map<String, dynamic> map) {
@@ -168,6 +172,7 @@ class NotaRetirada {
     String? retiradaConfirmadaPor,
     String? comprovanteRetiradaUrl,
     DateTime? criadoEm,
+    String? cadastradoPorNome,
   }) {
     return NotaRetirada(
       id: id ?? this.id,
@@ -191,6 +196,7 @@ class NotaRetirada {
       retiradaConfirmadaPor: retiradaConfirmadaPor ?? this.retiradaConfirmadaPor,
       comprovanteRetiradaUrl: comprovanteRetiradaUrl ?? this.comprovanteRetiradaUrl,
       criadoEm: criadoEm ?? this.criadoEm,
+      cadastradoPorNome: cadastradoPorNome ?? this.cadastradoPorNome,
     );
   }
 

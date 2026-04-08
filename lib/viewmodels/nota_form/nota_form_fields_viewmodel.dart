@@ -26,6 +26,7 @@ class NotaFormFieldsViewModel extends ChangeNotifier {
     telefoneClienteCtrl.addListener(_onFieldChanged);
     numeroNotaCtrl.addListener(_onFieldChanged);
     serieNotaCtrl.addListener(_onFieldChanged);
+    chaveNfeCtrl.addListener(_onFieldChanged);
     dataCompraCtrl.addListener(_onFieldChanged);
     descontoCtrl.addListener(_onDiscountChanged);
   }
@@ -47,6 +48,7 @@ class NotaFormFieldsViewModel extends ChangeNotifier {
     if (telefoneClienteCtrl.text.trim().isEmpty) novo.add(CampoObrigatorio.telefoneCliente);
     if (numeroNotaCtrl.text.trim().isEmpty) novo.add(CampoObrigatorio.numeroNota);
     if (serieNotaCtrl.text.trim().isEmpty) novo.add(CampoObrigatorio.serieNota);
+    if (chaveNfeCtrl.text.trim().isEmpty) novo.add(CampoObrigatorio.chaveNfe);
     if (dataCompraCtrl.text.trim().isEmpty) novo.add(CampoObrigatorio.dataCompra);
 
     if (novo.length != _missingFields.length || !novo.every(_missingFields.contains)) {
@@ -96,6 +98,7 @@ class NotaFormFieldsViewModel extends ChangeNotifier {
     telefoneClienteCtrl.removeListener(_onFieldChanged);
     numeroNotaCtrl.removeListener(_onFieldChanged);
     serieNotaCtrl.removeListener(_onFieldChanged);
+    chaveNfeCtrl.removeListener(_onFieldChanged);
     dataCompraCtrl.removeListener(_onFieldChanged);
     descontoCtrl.removeListener(_onDiscountChanged);
 

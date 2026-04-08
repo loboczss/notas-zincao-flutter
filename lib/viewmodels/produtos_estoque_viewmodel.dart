@@ -1,14 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:notas_zincao_flutter/constants/db_tables.dart';
 import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
+import 'package:notas_zincao_flutter/supabase_config.dart';
 import 'package:notas_zincao_flutter/viewmodels/product_stock_header_viewmodel.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ViewModel para a tela de gestão do estoque de produtos.
 /// Usa paginação server-side com infinite scroll e busca por ILIKE no banco.
 class ProdutosEstoqueViewModel extends ChangeNotifier {
   final EstoqueProdutoService _service = EstoqueProdutoService();
 
+  // Instancias ativas para permitir refresh global disparado pelo header.
+  static final Set<ProdutosEstoqueViewModel> _instances = <ProdutosEstoqueViewModel>{};
+
   static const int _limite = 50;
+  static const Duration _realtimeRefreshDelay = Duration(milliseconds: 350);
+
+  RealtimeChannel? _realtimeChannel;
+  Timer? _realtimeDebounce;
 
   final List<ProdutoEstoque> _produtos = [];
   String _query = '';
@@ -20,6 +32,19 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
   bool isCarregandoMais = false;
   bool isSaving = false;
   String? erro;
+
+  ProdutosEstoqueViewModel() {
+    _instances.add(this);
+    _setupRealtimeSync();
+  }
+
+  /// Atualiza todas as instancias ativas da listagem de estoque.
+  static Future<void> refreshAllInstances() async {
+    final active = _instances.where((vm) => !vm._isDisposed).toList(growable: false);
+    if (active.isEmpty) return;
+
+    await Future.wait(active.map((vm) => vm.carregarProdutos()));
+  }
 
   // ─── Getters ──────────────────────────────────────────────────────────────
 
@@ -157,9 +182,36 @@ class ProdutosEstoqueViewModel extends ChangeNotifier {
     }
   }
 
+  void _setupRealtimeSync() {
+    _realtimeChannel = supabase
+        .channel('realtime:estoque:produtos_estoque_vm')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: DbTables.estoqueGeral,
+        callback: (_) => _scheduleRealtimeRefresh(),
+      )
+      ..subscribe();
+  }
+
+  void _scheduleRealtimeRefresh() {
+    if (_isDisposed) return;
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(_realtimeRefreshDelay, () {
+      if (_isDisposed) return;
+      carregarProdutos();
+    });
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
+    _instances.remove(this);
+    _realtimeDebounce?.cancel();
+    if (_realtimeChannel != null) {
+      supabase.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+    }
     super.dispose();
   }
 }

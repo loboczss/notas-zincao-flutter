@@ -7,19 +7,78 @@ import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/theme/app_colors.dart';
 import 'package:notas_zincao_flutter/viewmodels/nota_form_viewmodel.dart';
 
-class ProdutosList extends StatelessWidget {
+class ProdutosList extends StatefulWidget {
   final NotaFormViewModel viewModel;
 
   const ProdutosList({super.key, required this.viewModel});
 
   @override
-  Widget build(BuildContext context) {
-    final produtos = viewModel.produtos;
-    final colorScheme = Theme.of(context).colorScheme;
+  State<ProdutosList> createState() => _ProdutosListState();
+}
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+class _ProdutosListState extends State<ProdutosList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _blinkController;
+  late final Animation<double> _blinkAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _blinkAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _blinkController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final produtos = widget.viewModel.produtos;
+    final colorScheme = Theme.of(context).colorScheme;
+    final produtoError = widget.viewModel.getFieldError(CampoErroValidacao.produtos);
+
+    if (produtoError != null) {
+      if (!_blinkController.isAnimating) {
+        _blinkController.repeat(reverse: true);
+      }
+    } else if (_blinkController.isAnimating) {
+      _blinkController.stop();
+      _blinkController.reset();
+    }
+
+    return AnimatedBuilder(
+      animation: _blinkAnimation,
+      builder: (context, _) {
+        final borderColor = produtoError == null
+            ? Colors.transparent
+            : Color.lerp(
+                Colors.transparent,
+                AppColors.error,
+                _blinkAnimation.value,
+              )!;
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: borderColor,
+              width: produtoError == null ? 0 : 1.5,
+            ),
+          ),
+          padding: produtoError == null
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -62,9 +121,29 @@ class ProdutosList extends StatelessWidget {
             ),
           ],
         ),
+        if (produtoError != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.35)),
+            ),
+            child: Text(
+              produtoError,
+              style: GoogleFonts.inter(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
-          'Somente produtos do estoque podem ser vinculados à nota. Use a busca para selecionar sem travar a tela.',
+          'A IA pode sugerir produtos. Você pode editar nome, quantidade, unidade e preço livremente.',
           style: GoogleFonts.inter(fontSize: 11, color: colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
@@ -90,7 +169,7 @@ class ProdutosList extends StatelessWidget {
                   style: GoogleFonts.inter(fontSize: 13, color: colorScheme.onSurfaceVariant),
                 ),
                 Text(
-                  'A IA preencherá com base no estoque ou selecione manualmente',
+                  'A IA pode sugerir e você pode ajustar livremente',
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
@@ -102,7 +181,10 @@ class ProdutosList extends StatelessWidget {
           )
         else
           ...List.generate(produtos.length, (i) => _buildProdutoCard(context, i, produtos[i])),
-      ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -188,7 +270,7 @@ class ProdutosList extends StatelessWidget {
           const SizedBox(width: 8),
           IconButton(
             icon: Icon(Icons.close_rounded, size: 18, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65)),
-            onPressed: () => viewModel.removeProduto(index),
+            onPressed: () => widget.viewModel.removeProduto(index),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -201,7 +283,7 @@ class ProdutosList extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (_) => _ProdutoPickerDialog(
-        viewModel: viewModel,
+        viewModel: widget.viewModel,
         produto: produto,
         index: index,
       ),
@@ -225,7 +307,9 @@ class _ProdutoPickerDialog extends StatefulWidget {
 }
 
 class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
+  late final TextEditingController _nomeCtrl;
   late final TextEditingController _buscaCtrl;
+  late final TextEditingController _unidadeCtrl;
   late final TextEditingController _qtdCtrl;
   late final TextEditingController _valorCtrl;
   Timer? _debounce;
@@ -239,7 +323,13 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
   @override
   void initState() {
     super.initState();
+    _nomeCtrl = TextEditingController(text: _isEditing ? (widget.produto?[ColsProdutoNota.nome] ?? '').toString() : '');
     _buscaCtrl = TextEditingController();
+    _unidadeCtrl = TextEditingController(
+      text: _isEditing
+          ? (widget.produto?[ColsProdutoNota.embalagem] ?? widget.produto?[ColsProdutoNota.tipoUnidade] ?? 'UN').toString()
+          : 'UN',
+    );
     _qtdCtrl = TextEditingController(text: _isEditing ? widget.produto!['quantidade']?.toString() : '1');
     _valorCtrl = TextEditingController(text: _isEditing ? (widget.produto!['valor_unitario']?.toString() ?? '') : '');
     _bootstrap();
@@ -267,6 +357,8 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
         setState(() {
           _selectedProduto = produtoEncontrado;
           _buscaCtrl.text = produtoEncontrado.descricao;
+          _nomeCtrl.text = produtoEncontrado.descricao;
+          _unidadeCtrl.text = produtoEncontrado.embalagemSaida;
           _valorCtrl.text = (produtoEncontrado.valorPrecoVarejo ?? 0).toStringAsFixed(2);
         });
       }
@@ -277,6 +369,8 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
     setState(() {
       _selectedProduto = _resultados.first;
       _buscaCtrl.text = _selectedProduto!.descricao;
+      _nomeCtrl.text = _selectedProduto!.descricao;
+      _unidadeCtrl.text = _selectedProduto!.embalagemSaida;
       _valorCtrl.text = (_selectedProduto!.valorPrecoVarejo ?? 0).toStringAsFixed(2);
     });
   }
@@ -284,7 +378,9 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _nomeCtrl.dispose();
     _buscaCtrl.dispose();
+    _unidadeCtrl.dispose();
     _qtdCtrl.dispose();
     _valorCtrl.dispose();
     super.dispose();
@@ -325,17 +421,25 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
   }
 
   void _salvar() {
-    final produto = _selectedProduto;
-    if (produto == null || produto.idProduto == null) return;
+    final nome = _nomeCtrl.text.trim();
+    if (nome.isEmpty) return;
 
-    final qtd = double.tryParse(_qtdCtrl.text.replaceAll(',', '.')) ?? 1.0;
-    final valor = produto.valorPrecoVarejo ?? 0;
+    final qtd = double.tryParse(_qtdCtrl.text.replaceAll(',', '.')) ?? 0;
+    final valor = double.tryParse(_valorCtrl.text.replaceAll(',', '.')) ?? 0;
+    final quantidade = qtd <= 0 ? 0 : qtd;
+    final unidade = _unidadeCtrl.text.trim().isEmpty ? 'UN' : _unidadeCtrl.text.trim();
+    final total = quantidade * valor;
 
-    final prodData = widget.viewModel.buildProdutoNotaFromCatalogo(
-      produto: produto,
-      quantidade: qtd <= 0 ? 1 : qtd,
-      valorUnitario: valor,
-    );
+    final prodData = <String, dynamic>{
+      ColsProdutoNota.idProdutoEstoque: _selectedProduto?.idProduto,
+      ColsProdutoNota.nome: nome,
+      ColsProdutoNota.tipoProduto: _selectedProduto?.tipoProduto,
+      ColsProdutoNota.quantidade: quantidade,
+      ColsProdutoNota.embalagem: unidade,
+      ColsProdutoNota.tipoUnidade: unidade,
+      ColsProdutoNota.valorUnitario: valor,
+      ColsProdutoNota.valorTotal: total,
+    };
 
     if (_isEditing) {
       widget.viewModel.updateProduto(widget.index!, prodData);
@@ -367,7 +471,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
             children: [
               _dialogField(
                 _buscaCtrl,
-                'Pesquisar produto por nome ou ID',
+                'Buscar no estoque (opcional)',
                 onChanged: _onSearchChanged,
                 prefixIcon: Icons.search_rounded,
                 isDark: Theme.of(context).brightness == Brightness.dark,
@@ -433,12 +537,21 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                                       setState(() {
                                         _selectedProduto = produto;
                                         _buscaCtrl.text = produto.descricao;
+                                        _nomeCtrl.text = produto.descricao;
+                                        _unidadeCtrl.text = produto.embalagemSaida;
                                         _valorCtrl.text = (produto.valorPrecoVarejo ?? 0).toStringAsFixed(2);
                                       });
                                     },
                                   );
                                 },
                               ),
+              ),
+              const SizedBox(height: 12),
+              _dialogField(
+                _nomeCtrl,
+                'Nome do produto',
+                prefixIcon: Icons.inventory_2_outlined,
+                isDark: Theme.of(context).brightness == Brightness.dark,
               ),
               const SizedBox(height: 12),
               if (_selectedProduto != null)
@@ -495,23 +608,10 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Container(
-                          height: 48,
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: colorScheme.outlineVariant),
-                          ),
-                          child: Text(
-                            _selectedProduto?.embalagemSaida ?? '-',
-                            style: GoogleFonts.inter(
-                              color: colorScheme.onSurface,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                        _dialogField(
+                          _unidadeCtrl,
+                          'UN',
+                          isDark: Theme.of(context).brightness == Brightness.dark,
                         ),
                       ],
                     ),
@@ -533,9 +633,8 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
                         const SizedBox(height: 6),
                         _dialogField(
                           _valorCtrl,
-                          'Preço do estoque',
+                          'Ex.: 85.00',
                           inputType: const TextInputType.numberWithOptions(decimal: true),
-                          readOnly: true,
                           isDark: Theme.of(context).brightness == Brightness.dark,
                         ),
                       ],
@@ -553,7 +652,7 @@ class _ProdutoPickerDialogState extends State<_ProdutoPickerDialog> {
           child: Text('Cancelar', style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant)),
         ),
         ElevatedButton(
-          onPressed: _selectedProduto == null ? null : _salvar,
+          onPressed: _salvar,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: colorScheme.onPrimary,

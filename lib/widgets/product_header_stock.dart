@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notas_zincao_flutter/viewmodels/produtos_estoque_viewmodel.dart';
 import 'package:notas_zincao_flutter/viewmodels/product_stock_header_viewmodel.dart';
 
 /// Widget minimalista para exibir o saldo do produto ID 10 no header.
@@ -11,6 +12,39 @@ class ProductHeaderStock extends StatefulWidget {
 
 class _ProductHeaderStockState extends State<ProductHeaderStock> {
   final _viewModel = ProductStockHeaderViewModel.instance;
+  bool _isRefreshingAll = false;
+
+  Future<void> _refreshAllStockData() async {
+    if (_isRefreshingAll) return;
+    setState(() => _isRefreshingAll = true);
+
+    try {
+      await Future.wait([
+        _viewModel.refreshStock(),
+        ProdutosEstoqueViewModel.refreshAllInstances(),
+      ]);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Estoque atualizado com sucesso.'),
+          duration: Duration(milliseconds: 1200),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Falha ao atualizar estoque. Tente novamente.'),
+          duration: Duration(milliseconds: 1600),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingAll = false);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -81,19 +115,26 @@ class _ProductHeaderStockState extends State<ProductHeaderStock> {
           child: Row(
             children: [
               // Ícone Estilizado
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.1),
+              IgnorePointer(
+                ignoring: _isRefreshingAll,
+                child: InkWell(
+                  onTap: _refreshAllStockData,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: colorScheme.primary.withValues(alpha: 0.2),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Icon(
+                      _isRefreshingAll ? Icons.sync : Icons.inventory_2_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
                   ),
-                ),
-                child: Icon(
-                  Icons.inventory_2_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 12),

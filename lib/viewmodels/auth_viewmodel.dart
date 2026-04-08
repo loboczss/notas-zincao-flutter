@@ -63,9 +63,23 @@ class AuthViewModel extends ChangeNotifier {
     if (session != null) {
       _loadProfile();
     } else {
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
+      _restoreCachedAuth();
     }
+  }
+
+  Future<void> _restoreCachedAuth() async {
+    try {
+      final cachedProfile = await _authService.loadCachedProfile();
+      if (cachedProfile != null) {
+        _profile = cachedProfile;
+        _status = AuthStatus.authenticated;
+      } else {
+        _status = AuthStatus.unauthenticated;
+      }
+    } catch (_) {
+      _status = AuthStatus.unauthenticated;
+    }
+    notifyListeners();
   }
 
   Future<void> _loadProfile() async {
@@ -75,8 +89,14 @@ class AuthViewModel extends ChangeNotifier {
       _profile = await _authService.fetchProfile();
       _status = AuthStatus.authenticated;
     } catch (e) {
-      _errorMessage = e.toString();
-      _status = AuthStatus.error;
+      final cachedProfile = await _authService.loadCachedProfile();
+      if (cachedProfile != null) {
+        _profile = cachedProfile;
+        _status = AuthStatus.authenticated;
+      } else {
+        _errorMessage = e.toString();
+        _status = AuthStatus.error;
+      }
     }
     notifyListeners();
   }

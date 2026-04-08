@@ -11,12 +11,14 @@ class ProdutoDialog extends StatefulWidget {
   final ProdutoEstoque? produto;
   final List<String> embalagens;
   final bool isSaving;
+  final String? userRole;
 
   const ProdutoDialog({
     super.key,
     this.produto,
     required this.embalagens,
     this.isSaving = false,
+    this.userRole,
   });
 
   /// Atalho para abrir o dialog e aguardar o resultado.
@@ -25,13 +27,17 @@ class ProdutoDialog extends StatefulWidget {
     ProdutoEstoque? produto,
     required List<String> embalagens,
     bool isSaving = false,
+    String? userRole,
   }) {
-    return showDialog<ProdutoEstoque>(
+    return showModalBottomSheet<ProdutoEstoque>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => ProdutoDialog(
         produto: produto,
         embalagens: embalagens,
         isSaving: isSaving,
+        userRole: userRole,
       ),
     );
   }
@@ -46,11 +52,14 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
   late final TextEditingController _descricaoCtrl;
   late final TextEditingController _quantidadeCtrl;
   late final TextEditingController _acrescentarCtrl;
+  late final TextEditingController _definirQuantidadeCtrl;
   late final TextEditingController _precoCtrl;
+  late final TextEditingController _idProdutoPaiCtrl;
+  late final TextEditingController _fatorConversaoCtrl;
   late String _embalagemSelecionada;
+  bool _modoDefinirQuantidade = false;
 
-  // Cached theme-derived values — computed once in didChangeDependencies
-  // to avoid repeated Theme.of / GoogleFonts lookups on every rebuild.
+  // Cached theme-derived values
   late bool _isDark;
   late ColorScheme _cs;
   late Color _fillColor;
@@ -60,6 +69,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
   late TextStyle _helperStyle;
 
   bool get _isEditing => widget.produto != null;
+  bool get _isAdmin => widget.userRole == 'admin';
 
   @override
   void initState() {
@@ -74,10 +84,21 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
           : '0',
     );
     _acrescentarCtrl = TextEditingController(text: '0');
+    _definirQuantidadeCtrl = TextEditingController(
+      text: p != null
+          ? p.quantidadeEstoque.toString().replaceAll(RegExp(r'\.0$'), '')
+          : '0',
+    );
     _precoCtrl = TextEditingController(
       text: p?.valorPrecoVarejo != null
-          ? p!.valorPrecoVarejo!.toStringAsFixed(2)
+          ? p!.valorPrecoVarejo!.toStringAsFixed(2).replaceAll('.', ',')
           : '',
+    );
+    _idProdutoPaiCtrl = TextEditingController(text: p?.idProdutoPai?.toString() ?? '');
+    _fatorConversaoCtrl = TextEditingController(
+      text: p?.fatorConversao != null 
+          ? p!.fatorConversao!.toStringAsFixed(2).replaceAll('.00', '').replaceAll('.', ',')
+          : '1,00',
     );
     _embalagemSelecionada =
         (p?.embalagemSaida ?? widget.embalagens.first).trim().toUpperCase();
@@ -103,7 +124,7 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
       borderRadius: radius,
       borderSide: BorderSide(color: AppColors.primary, width: 1.5),
     );
-    _fieldTextStyle = GoogleFonts.inter(color: _cs.onSurface, fontSize: 14);
+    _fieldTextStyle = GoogleFonts.inter(color: _cs.onSurface, fontSize: 15);
     _helperStyle = GoogleFonts.inter(
       color: _cs.onSurface.withValues(alpha: 0.45),
       fontSize: 11,
@@ -117,7 +138,10 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     _descricaoCtrl.dispose();
     _quantidadeCtrl.dispose();
     _acrescentarCtrl.dispose();
+    _definirQuantidadeCtrl.dispose();
     _precoCtrl.dispose();
+    _idProdutoPaiCtrl.dispose();
+    _fatorConversaoCtrl.dispose();
     super.dispose();
   }
 
@@ -136,9 +160,22 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
     if (preco == null || (idText.isNotEmpty && idProduto == null)) return null;
 
     final quantidadeBaseEdicao = widget.produto?.quantidadeEstoque ?? 0;
-    final quantidadeFinal = _isEditing
-      ? (quantidadeBaseEdicao + (acrescentar < 0 ? 0 : acrescentar))
-      : quantidadeInicial;
+    double quantidadeFinal;
+    if (_isEditing) {
+      if (_modoDefinirQuantidade) {
+        final definida = double.tryParse(_definirQuantidadeCtrl.text.replaceAll(',', '.')) ?? quantidadeBaseEdicao;
+        quantidadeFinal = definida < 0 ? 0 : definida;
+      } else {
+        quantidadeFinal = quantidadeBaseEdicao + (acrescentar < 0 ? 0 : acrescentar);
+      }
+    } else {
+      quantidadeFinal = quantidadeInicial;
+    }
+
+    final idPaiText = _idProdutoPaiCtrl.text.trim();
+    final idPai = idPaiText.isEmpty ? null : int.tryParse(idPaiText);
+    final fatorText = _fatorConversaoCtrl.text.trim().replaceAll(',', '.');
+    final fator = fatorText.isEmpty ? 1.0 : double.tryParse(fatorText);
 
     return ProdutoEstoque(
       idProduto: idProduto,
@@ -148,6 +185,8 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
       embalagemSaida: _embalagemSelecionada,
       quantidadeEstoque: quantidadeFinal < 0 ? 0 : quantidadeFinal,
       valorPrecoVarejo: preco,
+      idProdutoPai: idPai,
+      fatorConversao: fator ?? 1.0,
     );
   }
 
@@ -167,202 +206,394 @@ class _ProdutoDialogState extends State<ProdutoDialog> {
       return 'Quantidade inválida. Use apenas números.';
     }
     if (_isEditing) {
-      final acrescentar = double.tryParse(_acrescentarCtrl.text.replaceAll(',', '.'));
-      if (acrescentar == null) {
-        return 'A quantidade para acrescentar é inválida.';
-      }
-      if (acrescentar < 0) {
-        return 'A quantidade para acrescentar não pode ser negativa.';
+      if (_modoDefinirQuantidade) {
+        final definida = double.tryParse(_definirQuantidadeCtrl.text.replaceAll(',', '.'));
+        if (definida == null) {
+          return 'Quantidade inválida. Use apenas números (ex: 150 ou 12,5).';
+        }
+        if (definida < 0) {
+          return 'A quantidade não pode ser negativa.';
+        }
+      } else {
+        final acrescentar = double.tryParse(_acrescentarCtrl.text.replaceAll(',', '.'));
+        if (acrescentar == null) {
+          return 'A quantidade para acrescentar é inválida.';
+        }
+        if (acrescentar < 0) {
+          return 'A quantidade para acrescentar não pode ser negativa.';
+        }
       }
     }
     if (_precoCtrl.text.trim().isEmpty) {
       return 'O preço de venda é obrigatório.';
     }
     if (double.tryParse(_precoCtrl.text.replaceAll(',', '.')) == null) {
-      return 'Preço inválido. Use apenas números (ex: 44.00).';
+      return 'Preço inválido. Use apenas números (ex: 44,00).';
     }
+    
+    final idPaiText = _idProdutoPaiCtrl.text.trim();
+    if (idPaiText.isNotEmpty && int.tryParse(idPaiText) == null) {
+      return 'O código do protudo pai deve ser um número inteiro.';
+    }
+
+    final fatorText = _fatorConversaoCtrl.text.trim().replaceAll(',', '.');
+    if (fatorText.isNotEmpty && double.tryParse(fatorText) == null) {
+      return 'O fator de conversão deve ser numérico (ex: 0,5 ou 1,0)';
+    }
+
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-
-    return AlertDialog(
-      backgroundColor: isDark ? const Color(0xFF1E1E24) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Row(
-        children: [
-          Icon(
-            _isEditing ? Icons.edit_outlined : Icons.add_box_outlined,
-            color: AppColors.primary,
-            size: 22,
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: _cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           ),
-          const SizedBox(width: 8),
-          Text(
-            _isEditing ? 'Editar Produto' : 'Cadastrar Produto',
-            style: GoogleFonts.inter(
-                fontWeight: FontWeight.w700, color: cs.onSurface),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── ID do produto ─────────────────────────────────────────────
-            _field(
-              _idCtrl,
-              label: 'ID do produto',
-              helperText: 'Opcional no cadastro. Pode ser editado.',
-              prefixIcon: Icons.tag_outlined,
-              inputType: TextInputType.number,
-            ),
-            const SizedBox(height: 14),
-
-            // ── Tipo ──────────────────────────────────────────────────────
-            _field(
-              _tipoCtrl,
-              label: 'Tipo do produto',
-              helperText: 'Categoria geral: telha, cimento, ferro...',
-              prefixIcon: Icons.category_outlined,
-              inputType: TextInputType.text,
-            ),
-            const SizedBox(height: 14),
-
-            // ── Descrição (obrigatório) ────────────────────────────────
-            _field(
-              _descricaoCtrl,
-              label: 'Descrição *',
-              helperText: 'Nome completo do produto conforme cadastro',
-              prefixIcon: Icons.inventory_2_outlined,
-              inputType: TextInputType.text,
-              isRequired: true,
-            ),
-            const SizedBox(height: 14),
-
-            // ── Embalagem — widget próprio para isolar setState ────────
-            _EmbalagemDropdown(
-              embalagens: widget.embalagens,
-              initialValue: _embalagemSelecionada,
-              isDark: _isDark,
-              cs: _cs,
-              fillColor: _fillColor,
-              baseBorder: _baseBorder,
-              focusedBorder: _focusedBorder,
-              onChanged: (v) => _embalagemSelecionada = v,
-            ),
-            const SizedBox(height: 14),
-
-            if (!_isEditing)
-              _field(
-                _quantidadeCtrl,
-                label: 'Quantidade inicial em estoque *',
-                helperText: 'Quantidade inicial disponível no estoque.',
-                prefixIcon: Icons.numbers_outlined,
-                inputType: const TextInputType.numberWithOptions(decimal: true),
-                isRequired: true,
-              ),
-
-            if (_isEditing) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _fillColor,
-                  borderRadius: BorderRadius.circular(12),
+          child: Column(
+            children: [
+              // Drag Handle e Cabeçalho
+              Padding(
+                padding: const EdgeInsets.only(top: 16, bottom: 8),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _cs.onSurface.withValues(alpha: 0.24),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 18,
-                      color: _cs.onSurface.withValues(alpha: 0.6),
+                    Row(
+                      children: [
+                        Icon(
+                          _isEditing ? Icons.edit_outlined : Icons.add_box_outlined,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          _isEditing ? 'Editar Produto' : 'Novo Produto',
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: _cs.onSurface,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Estoque atual: ${widget.produto!.quantidadeEstoque.toString().replaceAll(RegExp(r'\\.0$'), '')}',
-                      style: _fieldTextStyle,
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: _cs.onSurface),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              _field(
-                _acrescentarCtrl,
-                label: 'Acrescentar ao estoque *',
-                helperText:
-                    'Essa quantidade será somada ao estoque atual ao salvar.',
-                prefixIcon: Icons.add_circle_outline,
-                inputType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                isRequired: true,
+
+              // Conteúdo rolável
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      // SEÇÃO 1: Informações Básicas
+                      _SectionCard(
+                        title: 'Informações Básicas',
+                        icon: Icons.info_outline,
+                        children: [
+                          _field(
+                            _idCtrl,
+                            label: 'ID do produto',
+                            helperText: 'Opcional. Código único do cadastro.',
+                            prefixIcon: Icons.tag_outlined,
+                            inputType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 16),
+                          _field(
+                            _descricaoCtrl,
+                            label: 'Descrição / Nome *',
+                            helperText: 'Ex: Telha Zinco M² ASTM',
+                            prefixIcon: Icons.inventory_2_outlined,
+                            inputType: TextInputType.text,
+                            isRequired: true,
+                          ),
+                          const SizedBox(height: 16),
+                          _field(
+                            _tipoCtrl,
+                            label: 'Tipo / Categoria',
+                            helperText: 'Ex: telha, cimento, ferragem...',
+                            prefixIcon: Icons.category_outlined,
+                            inputType: TextInputType.text,
+                          ),
+                          const SizedBox(height: 16),
+                          _EmbalagemDropdown(
+                            embalagens: widget.embalagens,
+                            initialValue: _embalagemSelecionada,
+                            isDark: _isDark,
+                            cs: _cs,
+                            fillColor: _fillColor,
+                            baseBorder: _baseBorder,
+                            focusedBorder: _focusedBorder,
+                            onChanged: (v) => _embalagemSelecionada = v,
+                          ),
+                          const SizedBox(height: 16),
+                          _field(
+                            _precoCtrl,
+                            label: 'Preço de Venda (R\$) *',
+                            helperText: 'Preço unitário no varejo',
+                            prefixIcon: Icons.attach_money_rounded,
+                            inputType: const TextInputType.numberWithOptions(decimal: true),
+                            isRequired: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // SEÇÃO 2: Controle de Estoque
+                      _SectionCard(
+                        title: 'Gestão de Estoque',
+                        icon: Icons.inventory_outlined,
+                        children: [
+                          if (!_isEditing)
+                            _field(
+                              _quantidadeCtrl,
+                              label: 'Quantidade inicial *',
+                              helperText: 'Saldo inicial em estoque.',
+                              prefixIcon: Icons.numbers_outlined,
+                              inputType: const TextInputType.numberWithOptions(decimal: true),
+                              isRequired: true,
+                            ),
+                          if (_isEditing) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: _cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _cs.outlineVariant),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.query_stats, color: AppColors.primary, size: 20),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Saldo atual em sistema',
+                                        style: TextStyle(fontSize: 12, color: _cs.onSurface.withValues(alpha: 0.6)),
+                                      ),
+                                      Text(
+                                        '${widget.produto!.quantidadeEstoque.toString().replaceAll('.', ',').replaceAll(RegExp(r',0$'), '')} $_embalagemSelecionada',
+                                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: _cs.onSurface),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Toggle Adicionar / Definir
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _modoDefinirQuantidade = false),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: !_modoDefinirQuantidade
+                                            ? AppColors.primary
+                                            : _fillColor,
+                                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(10)),
+                                        border: Border.all(
+                                          color: !_modoDefinirQuantidade
+                                              ? AppColors.primary
+                                              : _cs.outlineVariant,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.add_circle_outline,
+                                              size: 16,
+                                              color: !_modoDefinirQuantidade
+                                                  ? Colors.white
+                                                  : _cs.onSurface.withValues(alpha: 0.6)),
+                                          const SizedBox(width: 6),
+                                          Text('Adicionar',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: !_modoDefinirQuantidade
+                                                    ? Colors.white
+                                                    : _cs.onSurface.withValues(alpha: 0.6),
+                                              )),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _modoDefinirQuantidade = true),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: _modoDefinirQuantidade
+                                            ? AppColors.primary
+                                            : _fillColor,
+                                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(10)),
+                                        border: Border.all(
+                                          color: _modoDefinirQuantidade
+                                              ? AppColors.primary
+                                              : _cs.outlineVariant,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.edit_outlined,
+                                              size: 16,
+                                              color: _modoDefinirQuantidade
+                                                  ? Colors.white
+                                                  : _cs.onSurface.withValues(alpha: 0.6)),
+                                          const SizedBox(width: 6),
+                                          Text('Definir',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: _modoDefinirQuantidade
+                                                    ? Colors.white
+                                                    : _cs.onSurface.withValues(alpha: 0.6),
+                                              )),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (!_modoDefinirQuantidade)
+                              _field(
+                                _acrescentarCtrl,
+                                label: 'Adicionar ao estoque',
+                                helperText: 'Quantidade para SOMAR ao saldo atual.',
+                                prefixIcon: Icons.add_circle_outline,
+                                inputType: const TextInputType.numberWithOptions(decimal: true),
+                              )
+                            else
+                              _field(
+                                _definirQuantidadeCtrl,
+                                label: 'Nova quantidade em estoque',
+                                helperText: 'Substitui o saldo atual pelo valor informado.',
+                                prefixIcon: Icons.edit_outlined,
+                                inputType: const TextInputType.numberWithOptions(decimal: true),
+                              ),
+                          ],
+                        ],
+                      ),
+                      
+                      // SEÇÃO 3: Dependência (Somente Admin)
+                      if (_isAdmin) ...[
+                        const SizedBox(height: 24),
+                        _SectionCard(
+                          title: 'Vínculo (Avançado)',
+                          icon: Icons.link_outlined,
+                          isWarning: true,
+                          children: [
+                            _field(
+                              _idProdutoPaiCtrl,
+                              label: 'ID do Produto Pai',
+                              helperText: 'Vincular desconto a outro saldo (Ex: código 10).',
+                              prefixIcon: Icons.link,
+                              inputType: TextInputType.number,
+                            ),
+                            const SizedBox(height: 16),
+                            _field(
+                              _fatorConversaoCtrl,
+                              label: 'Fator de Conversão',
+                              helperText: 'Ex: 0,5 significa que 1UN desconta 0,5 do pai.',
+                              prefixIcon: Icons.calculate_outlined,
+                              inputType: const TextInputType.numberWithOptions(decimal: true),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 80), // Espaço para o botão fixo
+                    ],
+                  ),
+                ),
+              ),
+
+              // Botão Salvar (Fixo no rodapé)
+              Container(
+                padding: const EdgeInsets.all(24).copyWith(top: 16),
+                decoration: BoxDecoration(
+                  color: _cs.surface,
+                  border: Border(top: BorderSide(color: _cs.outlineVariant)),
+                ),
+                child: SizedBox(
+                  height: 52,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: widget.isSaving
+                        ? null
+                        : () {
+                            final erro = _validationError();
+                            if (erro != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(erro),
+                                  backgroundColor: AppColors.warning,
+                                ),
+                              );
+                              return;
+                            }
+                            final p = _buildProduto();
+                            if (p == null) return;
+                            Navigator.pop(context, p);
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: widget.isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(
+                            _isEditing ? 'Salvar Alterações' : 'Cadastrar Produto',
+                            style: GoogleFonts.inter(
+                                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                  ),
+                ),
               ),
             ],
-            const SizedBox(height: 14),
-
-            // ── Preço (obrigatório) ────────────────────────────────────
-            _field(
-              _precoCtrl,
-              label: 'Preço de venda (R\$) *',
-              helperText: 'Preço unitário de venda no varejo',
-              prefixIcon: Icons.attach_money_rounded,
-              inputType: const TextInputType.numberWithOptions(decimal: true),
-              isRequired: true,
-            ),
-          ],
-        ),
-      ),
-      actionsPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      actions: [
-        TextButton(
-          onPressed: widget.isSaving ? null : () => Navigator.pop(context),
-          child: Text(
-            'Cancelar',
-            style: GoogleFonts.inter(
-                color: cs.onSurface.withValues(alpha: 0.6)),
           ),
-        ),
-        ElevatedButton(
-          onPressed: widget.isSaving
-              ? null
-              : () {
-                  final erro = _validationError();
-                  if (erro != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(erro),
-                        backgroundColor: AppColors.warning,
-                      ),
-                    );
-                    return;
-                  }
-                  final p = _buildProduto();
-                  if (p == null) return;
-                  Navigator.pop(context, p);
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ),
-          child: widget.isSaving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : Text(
-                  _isEditing ? 'Salvar' : 'Cadastrar',
-                  style: GoogleFonts.inter(
-                      color: Colors.white, fontWeight: FontWeight.w700),
-                ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -486,6 +717,55 @@ class _EmbalagemDropdownState extends State<_EmbalagemDropdown> {
         setState(() => _value = v);
         widget.onChanged(v);
       },
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+  final bool isWarning;
+
+  const _SectionCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+    this.isWarning = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: isWarning ? AppColors.warning : AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
     );
   }
 }

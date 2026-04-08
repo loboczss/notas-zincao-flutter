@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:notas_zincao_flutter/constants/db_schema.dart';
 import 'package:notas_zincao_flutter/models/nota_retirada.dart';
+import 'package:notas_zincao_flutter/models/produto_estoque.dart';
 import 'package:notas_zincao_flutter/services/estoque_produto_service.dart';
+import 'package:notas_zincao_flutter/services/pending_retirada_service.dart';
 import 'package:notas_zincao_flutter/services/retirada_form_service.dart';
 import 'package:notas_zincao_flutter/viewmodels/product_stock_header_viewmodel.dart';
 
@@ -20,14 +23,31 @@ class RetiradaViewModel extends ChangeNotifier {
 
   // Mapa de Indice do Produto -> Quantidade selecionada para retirar agora
   final Map<int, double> quantidadesSelecionadas = {};
-  
+
   // Fotos capturadas como comprovante para esta retirada
   final List<File> fotosComprovante = [];
 
   final Map<int, double> estoqueDisponivelPorIndex = {};
+  final Map<int, String> parentInfoPorIndex = {};
 
   RetiradaStatus status = RetiradaStatus.idle;
   String? errorMessage;
+
+  /// true quando a última retirada foi salva localmente e aguarda sincronização.
+  bool syncPendente = false;
+
+  String _mapRetiradaError(Object error) {
+    final text = error.toString();
+    if (text.contains('nao existe no estoque') ||
+        text.contains('não existe no estoque')) {
+      return 'Um ou mais produtos da nota nao existem no estoque. Abra a tela de Estoque, cadastre/vincule os produtos e tente novamente.';
+    }
+    if (text.contains('nao pode ser vinculado ao estoque') ||
+        text.contains('não pode ser vinculado ao estoque')) {
+      return 'Existe produto sem nome ou sem vinculo. Corrija na nota e vincule ao estoque antes de confirmar a retirada.';
+    }
+    return 'Erro ao salvar retirada: $error';
+  }
 
   /// Inicializa o ViewModel com uma nota
   void init(NotaRetirada nota) {
@@ -35,14 +55,16 @@ class RetiradaViewModel extends ChangeNotifier {
     quantidadesSelecionadas.clear();
     fotosComprovante.clear();
     estoqueDisponivelPorIndex.clear();
-    
+    parentInfoPorIndex.clear();
+
     // Inicializa as quantidades selecionadas com 0.0
     for (int i = 0; i < nota.produtos.length; i++) {
-        quantidadesSelecionadas[i] = 0.0;
+      quantidadesSelecionadas[i] = 0.0;
     }
-    
+
     status = RetiradaStatus.idle;
     errorMessage = null;
+    syncPendente = false;
     notifyListeners();
 
     _loadEstoqueDisponivel();
@@ -63,16 +85,52 @@ class RetiradaViewModel extends ChangeNotifier {
         }
       }
 
-      final estoquePorId = await _estoqueService.fetchQuantidadesDisponiveis(ids);
+      final produtosEstoque = await _estoqueService.fetchByIds(ids);
+      final produtosMap = {
+        for (var p in produtosEstoque)
+          if (p.idProduto != null) p.idProduto!: p
+      };
+
+      final idsPai = produtosEstoque
+          .map((p) => p.idProdutoPai)
+          .where((id) => id != null)
+          .cast<int>()
+          .toSet()
+          .toList();
+
+      final paisEstoque = idsPai.isNotEmpty
+          ? await _estoqueService.fetchByIds(idsPai)
+          : <ProdutoEstoque>[];
+
+      final paisMap = {
+        for (var p in paisEstoque)
+          if (p.idProduto != null) p.idProduto!: p
+      };
 
       if (_isDisposed) return;
+
       for (int i = 0; i < notaSelecionada!.produtos.length; i++) {
         final raw = notaSelecionada!.produtos[i];
         if (raw is! Map) continue;
         final p = Map<String, dynamic>.from(raw);
         final idProduto = p[ColsProdutoNota.idProdutoEstoque];
         if (idProduto is int) {
-          estoqueDisponivelPorIndex[i] = estoquePorId[idProduto] ?? 0;
+          final prod = produtosMap[idProduto];
+          if (prod != null) {
+            if (prod.idProdutoPai != null &&
+                paisMap.containsKey(prod.idProdutoPai)) {
+              final pai = paisMap[prod.idProdutoPai]!;
+              final fator =
+                  (prod.fatorConversao ?? 1.0) <= 0 ? 1.0 : prod.fatorConversao!;
+              estoqueDisponivelPorIndex[i] = pai.quantidadeEstoque / fator;
+              parentInfoPorIndex[i] =
+                  'Vinculado ao estoque: ${pai.descricao} (ID ${pai.idProduto})';
+            } else {
+              estoqueDisponivelPorIndex[i] = prod.quantidadeEstoque;
+            }
+          } else {
+            estoqueDisponivelPorIndex[i] = 0;
+          }
         }
       }
       notifyListeners();
@@ -93,7 +151,8 @@ class RetiradaViewModel extends ChangeNotifier {
       return saldoNota < 0 ? 0 : saldoNota;
     }
 
-    final maximo = saldoNota <= estoqueDisponivel ? saldoNota : estoqueDisponivel;
+    final maximo =
+        saldoNota <= estoqueDisponivel ? saldoNota : estoqueDisponivel;
     return maximo < 0 ? 0 : maximo;
   }
 
@@ -103,7 +162,8 @@ class RetiradaViewModel extends ChangeNotifier {
     final raw = produtos[index];
     if (raw is! Map) return 0.0;
     final p = Map<String, dynamic>.from(raw);
-    double qtdOriginal = double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
+    double qtdOriginal =
+        double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
     if (qtdOriginal <= 0) qtdOriginal = 1.0;
     return qtdOriginal;
   }
@@ -114,7 +174,9 @@ class RetiradaViewModel extends ChangeNotifier {
     final raw = produtos[index];
     if (raw is! Map) return 0.0;
     final p = Map<String, dynamic>.from(raw);
-    return double.tryParse(p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ?? 0.0;
+    return double.tryParse(
+            p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ??
+        0.0;
   }
 
   double getSaldoNota(int index) {
@@ -224,7 +286,7 @@ class RetiradaViewModel extends ChangeNotifier {
   }
 
   // ─── Fotos ────────────────────────────────────────────────────────
-  
+
   Future<void> tirarFoto() async {
     status = RetiradaStatus.capturing;
     notifyListeners();
@@ -253,9 +315,24 @@ class RetiradaViewModel extends ChangeNotifier {
   }
 
   // ─── Confirmação ──────────────────────────────────────────────────
-  
-  Future<void> confirmarRetirada(String userId) async {
+
+  Future<void> confirmarRetirada(
+    String userId, {
+    required String? userRole,
+    required String? userName,
+  }) async {
     if (notaSelecionada == null) return;
+
+    final normalizedRole = (userRole ?? '').trim().toLowerCase();
+    final canMakeRetirada =
+        normalizedRole == 'admin' || normalizedRole == 'colaborador';
+    if (!canMakeRetirada) {
+      status = RetiradaStatus.error;
+      errorMessage =
+          'Você não tem permissão para registrar retirada de produtos.';
+      notifyListeners();
+      return;
+    }
 
     final erroValidacao = validarAntesDeConfirmar();
     if (erroValidacao != null) {
@@ -270,6 +347,16 @@ class RetiradaViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Verifica conectividade antes de tentar operações de rede
+      final connectivity = await Connectivity().checkConnectivity();
+      final isOffline =
+          connectivity.every((r) => r == ConnectivityResult.none);
+
+      if (isOffline) {
+        await _confirmarOffline(userId, userRole: userRole, userName: userName);
+        return;
+      }
+
       // 1. Upload das Fotos
       final urls = await _service.uploadImages(fotosComprovante, userId);
 
@@ -279,20 +366,129 @@ class RetiradaViewModel extends ChangeNotifier {
         quantidadesRetiradas: quantidadesSelecionadas,
         comprovantesUrls: urls,
         userId: userId,
+        userName: userName,
+        userRole: userRole,
       );
 
       notaSelecionada = notaAtualizada;
-      
+
       // Atualiza o saldo do produto no header
       ProductStockHeaderViewModel.instance.refreshStock();
-      
+
+      syncPendente = false;
       status = RetiradaStatus.success;
-      
     } catch (e) {
       status = RetiradaStatus.error;
-      errorMessage = 'Erro ao salvar retirada: $e';
+      errorMessage = _mapRetiradaError(e);
     } finally {
       notifyListeners();
     }
+  }
+
+  // ─── Fluxo Offline ────────────────────────────────────────────────
+
+  Future<void> _confirmarOffline(
+    String userId, {
+    required String? userRole,
+    required String? userName,
+  }) async {
+    final pendingService = PendingRetiradaService();
+    final pendingId = 'retirada_${DateTime.now().millisecondsSinceEpoch}';
+
+    // 1. Persiste as fotos em local estável para sobreviver a reinicializações
+    final fotosPaths =
+        await pendingService.persistPhotos(fotosComprovante, pendingId);
+
+    // 2. Enfileira a operação
+    final item = PendingRetiradaItem(
+      id: pendingId,
+      notaId: notaSelecionada!.id,
+      userId: userId,
+      userName: userName,
+      userRole: userRole,
+      quantidades: Map.from(quantidadesSelecionadas),
+      fotosPaths: fotosPaths,
+      timestamp: DateTime.now(),
+    );
+    await pendingService.add(item);
+
+    // 3. Atualiza o estado da nota localmente (otimista, sem RPC de estoque)
+    notaSelecionada = _calcularRetiradaLocal(
+      nota: notaSelecionada!,
+      quantidades: quantidadesSelecionadas,
+      userId: userId,
+      userName: userName,
+    );
+
+    syncPendente = true;
+    status = RetiradaStatus.success;
+    notifyListeners();
+  }
+
+  /// Aplica a retirada localmente sem chamadas de rede.
+  /// Usa as quantidades solicitadas diretamente (sem validação via RPC de estoque).
+  NotaRetirada _calcularRetiradaLocal({
+    required NotaRetirada nota,
+    required Map<int, double> quantidades,
+    required String userId,
+    String? userName,
+  }) {
+    final novosProdutos = List<dynamic>.from(nota.produtos);
+    bool todasRetiradas = true;
+    final retiradasEfetivas = <int, double>{};
+
+    for (int i = 0; i < novosProdutos.length; i++) {
+      final raw = novosProdutos[i];
+      if (raw is! Map) continue;
+      final p = Map<String, dynamic>.from(raw);
+
+      final qtdOriginal =
+          double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ??
+              1.0;
+      final qtdJaRetirada = double.tryParse(
+              p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ??
+          0.0;
+      final saldo = (qtdOriginal - qtdJaRetirada).clamp(0.0, double.infinity);
+      final qtdRetirandoAgora = (quantidades[i] ?? 0.0).clamp(0.0, saldo);
+
+      retiradasEfetivas[i] = qtdRetirandoAgora;
+      p[ColsProdutoNota.quantidadeRetirada] = qtdJaRetirada + qtdRetirandoAgora;
+      novosProdutos[i] = p;
+
+      final novaQtdRetirada = qtdJaRetirada + qtdRetirandoAgora;
+      if ((novaQtdRetirada + 0.001) < qtdOriginal) {
+        todasRetiradas = false;
+      }
+    }
+
+    final novoStatusStr = todasRetiradas ? 'retirada' : 'parcial';
+    final novoHistorico = List<dynamic>.from(nota.historicoRetiradas ?? []);
+
+    if (retiradasEfetivas.values.any((q) => q > 0)) {
+      novoHistorico.add({
+        'data': DateTime.now().toIso8601String(),
+        'responsavel_id': userId,
+        'responsavel_nome':
+            (userName ?? '').trim().isEmpty ? 'Usuario' : userName!.trim(),
+        'fotos': <String>[],
+        'itens_retirados': retiradasEfetivas.entries
+            .map((e) => {
+                  'index': e.key,
+                  'quantidade': e.value,
+                  'quantidade_solicitada': quantidades[e.key] ?? 0,
+                })
+            .toList(),
+      });
+    }
+
+    return nota.copyWith(
+      produtos: novosProdutos,
+      historicoRetiradas: novoHistorico,
+      statusRetirada: StatusRetirada.fromString(novoStatusStr),
+      retiradaConfirmadaPor: userId,
+      dataRetirada: novoStatusStr == 'retirada' && nota.dataRetirada == null
+          ? DateTime.now()
+          : nota.dataRetirada,
+    );
   }
 }

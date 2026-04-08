@@ -295,6 +295,17 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.person_outline, size: 14, color: cs.onSurface.withValues(alpha: 0.6)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Cadastrado por: ${nota.cadastradoPorNome ?? '—'}',
+                                    style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75), fontSize: 13),
+                                  ),
+                                ],
+                              ),
                               if (nota.telefoneCliente != null) ...[
                                 const SizedBox(height: 6),
                                 Row(
@@ -366,6 +377,7 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                           child: Column(
                             children: nota.produtos.map((p) {
                               final nome = p[ColsProdutoNota.nome] ?? 'Produto';
+                              final idProduto = p[ColsProdutoNota.idProdutoEstoque]?.toString() ?? '-';
                               final qtdOriginal = double.tryParse(p[ColsProdutoNota.quantidade]?.toString() ?? '1') ?? 1.0;
                               final qtdRetirada = double.tryParse(p[ColsProdutoNota.quantidadeRetirada]?.toString() ?? '0') ?? 0.0;
                               final tipoStr = p[ColsProdutoNota.tipoUnidade] ?? 'UN';
@@ -377,7 +389,17 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                   isComplete ? Icons.check_circle : Icons.inventory_2_outlined,
                                   color: isComplete ? AppColors.success : cs.onSurfaceVariant,
                                 ),
-                                title: Text(nome, style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w500)),
+                                title: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(nome, style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w500)),
+                                    Text(
+                                      'ID: $idProduto',
+                                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
                                 subtitle: Text(
                                   'Comprado: $qtdOriginal $tipoStr | Entregue: $qtdRetirada $tipoStr',
                                   style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
@@ -452,6 +474,8 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                              final dataStr = evento['data'] as String?;
                              final dt = dataStr != null ? DateTime.tryParse(dataStr) : null;
                              final dtFormatted = dt != null ? DateFormat("dd/MM/yyyy 'às' HH:mm").format(dt) : 'Data Desconhecida';
+                              final responsavelNome = (evento['responsavel_nome'] ?? '').toString().trim();
+                              final responsavelId = (evento['responsavel_id'] ?? '').toString().trim();
                              
                              final listaItens = evento['itens_retirados'] as List<dynamic>?;
                              final fotos = evento['fotos'] as List<dynamic>?;
@@ -480,6 +504,27 @@ void showNotaDetails(BuildContext context, NotaRetirada nota, AuthViewModel auth
                                        ),
                                      ],
                                    ),
+                                   if (responsavelNome.isNotEmpty || responsavelId.isNotEmpty) ...[
+                                     const SizedBox(height: 8),
+                                     Row(
+                                       children: [
+                                         Icon(Icons.person_outline, size: 16, color: cs.onSurfaceVariant),
+                                         const SizedBox(width: 6),
+                                         Expanded(
+                                           child: Text(
+                                             responsavelNome.isNotEmpty
+                                                 ? 'Retirada por: $responsavelNome'
+                                                 : 'Retirada por usuário: $responsavelId',
+                                             style: TextStyle(
+                                               color: cs.onSurfaceVariant,
+                                               fontSize: 13,
+                                               fontWeight: FontWeight.w600,
+                                             ),
+                                           ),
+                                         ),
+                                       ],
+                                     ),
+                                   ],
                                    if (listaItens != null && listaItens.isNotEmpty) ...[
                                       const SizedBox(height: 16),
                                       Text('Itens Entregues:', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600)),

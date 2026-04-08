@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -12,6 +13,19 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 val hasKeystoreProperties = keystorePropertiesFile.exists()
 if (hasKeystoreProperties) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
+val keystorePathFromProps = keystoreProperties["storeFile"] as String?
+val keystoreFile = if (!keystorePathFromProps.isNullOrBlank()) {
+    val configured = file(keystorePathFromProps)
+    if (configured.exists()) {
+        configured
+    } else {
+        // Backward compatible fallback for projects that keep the keystore in android/app.
+        file("app/$keystorePathFromProps")
+    }
+} else {
+    null
 }
 
 android {
@@ -42,7 +56,10 @@ android {
     signingConfigs {
         if (hasKeystoreProperties) {
             create("release") {
-                storeFile = file(keystoreProperties["storeFile"] as String)
+                if (keystoreFile == null || !keystoreFile.exists()) {
+                    throw GradleException("Keystore de release nao encontrado. Verifique storeFile em android/key.properties")
+                }
+                storeFile = keystoreFile
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
@@ -51,11 +68,22 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep the same signature as release to allow in-place updates during internal tests.
+            if (hasKeystoreProperties) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
         release {
             signingConfig = if (hasKeystoreProperties) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                throw GradleException("android/key.properties ausente. Release deve ser gerado com assinatura de release.")
+            }
+            packaging {
+                jniLibs {
+                    keepDebugSymbols += setOf("**/*.so")
+                }
             }
         }
     }

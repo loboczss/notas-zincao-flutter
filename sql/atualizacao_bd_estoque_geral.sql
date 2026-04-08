@@ -116,8 +116,23 @@ as $$
   );
 $$;
 
+create or replace function public.is_admin_or_colaborador()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.auth_uid = auth.uid()
+      and lower(coalesce(p.role, '')) in ('admin', 'colaborador')
+  );
+$$;
+
 -- ============================================================
--- 3) RLS (APENAS ADMIN PODE ESCREVER)
+-- 3) RLS (ADMIN E COLABORADOR PODEM BAIXAR ESTOQUE)
 -- ============================================================
 
 alter table public.bd_estoque_geral enable row level security;
@@ -143,8 +158,8 @@ create policy p_bd_estoque_geral_update_admin
 on public.bd_estoque_geral
 for update
 to authenticated
-using (public.is_admin())
-with check (public.is_admin());
+using (public.is_admin_or_colaborador())
+with check (public.is_admin_or_colaborador());
 
 create policy p_bd_estoque_geral_delete_admin
 on public.bd_estoque_geral
@@ -176,7 +191,7 @@ declare
   v_estoque_atual numeric := 0;
   v_retirada numeric := 0;
 begin
-  if not public.is_admin() then
+  if not public.is_admin_or_colaborador() then
     raise exception 'Sem permissão para baixar estoque';
   end if;
 

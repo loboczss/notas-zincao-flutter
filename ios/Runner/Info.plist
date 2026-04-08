@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Permita usar a câmera para fotografar o cupom fiscal.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Permita acessar a galeria para selecionar fotos de cupons fiscais.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Permita salvar fotos da nota na galeria do aparelho.</string>
 	<key>UIApplicationSceneManifest</key>

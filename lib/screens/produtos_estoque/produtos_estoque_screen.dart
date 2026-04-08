@@ -98,6 +98,7 @@ class _ProdutosEstoqueScreenState extends State<ProdutosEstoqueScreen> {
       produto: produto,
       embalagens: _embalagens,
       isSaving: _viewModel.isSaving,
+      userRole: widget.authViewModel.profile?.role,
     );
 
     if (resultado == null) return;

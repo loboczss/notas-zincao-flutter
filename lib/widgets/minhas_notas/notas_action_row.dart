@@ -5,12 +5,16 @@ class NotasActionRow extends StatelessWidget {
   final bool isTableView;
   final VoidCallback onToggleView;
   final VoidCallback onRefresh;
+  final bool isAdmin;
+  final VoidCallback? onExport;
 
   const NotasActionRow({
     super.key,
     required this.isTableView,
     required this.onToggleView,
     required this.onRefresh,
+    this.isAdmin = false,
+    this.onExport,
   });
 
   @override
@@ -43,6 +47,15 @@ class NotasActionRow extends StatelessWidget {
             tooltip: 'Atualizar',
             onPressed: onRefresh,
           ),
+          if (isAdmin)
+            IconButton(
+              icon: Icon(
+                Icons.download_outlined,
+                color: onSurface.withValues(alpha: 0.6),
+              ),
+              tooltip: 'Exportar relatório',
+              onPressed: onExport,
+            ),
         ],
       ),
     );

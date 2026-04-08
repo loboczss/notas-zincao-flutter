@@ -3,6 +3,7 @@ enum CampoObrigatorio {
   telefoneCliente,
   numeroNota,
   serieNota,
+  chaveNfe,
   dataCompra,
 }
 
@@ -16,4 +17,16 @@ enum NotaFormStatus {
   duplicateFound,
   error,
   quotaExceeded,
+}
+
+enum CampoErroValidacao {
+  nomeCliente,
+  documentoCliente,
+  telefoneCliente,
+  numeroNota,
+  serieNota,
+  chaveNfe,
+  dataCompra,
+  desconto,
+  produtos,
 }

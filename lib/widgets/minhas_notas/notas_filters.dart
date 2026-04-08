@@ -5,18 +5,29 @@ class NotasFilters extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final StatusRetirada? selectedStatus;
   final ValueChanged<StatusRetirada?> onStatusSelected;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final ValueChanged<DateTime?> onStartDateChanged;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final VoidCallback onClearDateRange;
 
   const NotasFilters({
     super.key,
     required this.onSearch,
     required this.selectedStatus,
     required this.onStatusSelected,
+    required this.startDate,
+    required this.endDate,
+    required this.onStartDateChanged,
+    required this.onEndDateChanged,
+    required this.onClearDateRange,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
+    final hasDateFilter = startDate != null || endDate != null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -51,9 +62,77 @@ class NotasFilters extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickDate(
+                    context,
+                    initialDate: startDate ?? DateTime.now(),
+                    onDateSelected: onStartDateChanged,
+                  ),
+                  icon: const Icon(Icons.event_available_outlined, size: 18),
+                  label: Text(_formatDateLabel('Início', startDate)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickDate(
+                    context,
+                    initialDate: endDate ?? startDate ?? DateTime.now(),
+                    onDateSelected: onEndDateChanged,
+                  ),
+                  icon: const Icon(Icons.event_outlined, size: 18),
+                  label: Text(_formatDateLabel('Fim', endDate)),
+                ),
+              ),
+            ],
+          ),
+          if (hasDateFilter) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onClearDateRange,
+                icon: const Icon(Icons.clear, size: 18),
+                label: const Text('Limpar período'),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _formatDateLabel(String prefix, DateTime? date) {
+    if (date == null) return '$prefix: --/--/----';
+    final d = date.day.toString().padLeft(2, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final y = date.year.toString();
+    return '$prefix: $d/$m/$y';
+  }
+
+  Future<void> _pickDate(
+    BuildContext context, {
+    required DateTime initialDate,
+    required ValueChanged<DateTime?> onDateSelected,
+  }) async {
+    final now = DateTime.now();
+    final firstDate = DateTime(now.year - 10);
+    final lastDate = DateTime(now.year + 10, 12, 31);
+
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+
+    if (selected != null) {
+      onDateSelected(DateUtils.dateOnly(selected));
+    }
   }
 
   Widget _buildStatusChip(BuildContext context, StatusRetirada? status, String label) {

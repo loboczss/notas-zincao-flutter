@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:notas_zincao_flutter/models/profile.dart';
 import 'package:notas_zincao_flutter/supabase_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Serviço de autenticação: envolve o Supabase Auth e o acesso à tabela profiles.
 /// Stateless — não armazena estado da sessão. Use [AuthViewModel] para isso.
 class AuthService {
+  static const String _cachedProfileKey = 'auth_cached_profile_v1';
+
   /// Stream de mudanças de estado de autenticação do Supabase.
   Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
 
@@ -48,6 +53,7 @@ class AuthService {
   /// Realiza logout e invalida a sessão local.
   Future<void> signOut() async {
     await supabase.auth.signOut();
+    await clearCachedProfile();
   }
 
   /// Busca o perfil do usuário autenticado da tabela public.profiles.
@@ -62,7 +68,32 @@ class AuthService {
         .maybeSingle();
 
     if (data == null) return null;
-    return Profile.fromMap(data);
+    final profile = Profile.fromMap(data);
+    await cacheProfile(profile);
+    return profile;
+  }
+
+  /// Persiste o último perfil autenticado para abertura offline do app.
+  Future<void> cacheProfile(Profile profile) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cachedProfileKey, jsonEncode(profile.toMap()));
+  }
+
+  /// Lê o perfil salvo em cache local, se existir.
+  Future<Profile?> loadCachedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_cachedProfileKey);
+    if (raw == null || raw.isEmpty) return null;
+
+    final data = jsonDecode(raw);
+    if (data is! Map) return null;
+    return Profile.fromMap(Map<String, dynamic>.from(data));
+  }
+
+  /// Remove cache de perfil local.
+  Future<void> clearCachedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cachedProfileKey);
   }
 
   /// Atualiza campos editáveis do perfil do usuário.
