@@ -4,7 +4,18 @@
       "Bash(dart analyze:*)",
       "Bash(grep -n \"capturePhoto\\\\|pickPhoto\\\\|saveNota\\\\|resetForm\\\\|clearDuplicateFound\\\\|clearQuotaError\\\\|addProduto\\\\|removeProduto\\\\|updateProduto\\\\|buildProdutoNota\\\\|searchProdutos\\\\|findProduto\\\\|loadProdutos\\\\|analyzeWithAI\\\\|upsertCrmContact\" lib/screens/nota_register_screen.dart lib/widgets/nova_nota/*.dart)",
       "Bash(grep -rn \"''notas_retirada''\\\\|''crm_zincao''\\\\|''cupons''\\\\|''bd_estoque_geral''\" lib/ --include=\"*.dart\")",
-      "Bash(grep -rn \"import ''dart:io'';\" lib/services/nota_form_service.dart lib/services/retirada_form_service.dart)"
+      "Bash(grep -rn \"import ''dart:io'';\" lib/services/nota_form_service.dart lib/services/retirada_form_service.dart)",
+      "Bash(du -sh *)",
+      "Bash(xargs ls:*)",
+      "Bash(zipinfo -1 ./build/app/outputs/apk/release/app-release.apk)",
+      "Bash(unzip -l ./build/app/outputs/apk/release/app-release.apk)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter build:*)",
+      "Bash(ls -la build/app/outputs/bundle/release/*.aab)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(ls -lh build/app/outputs/flutter-apk/*.apk build/app/outputs/bundle/release/*.aab)"
     ]
   }
 }

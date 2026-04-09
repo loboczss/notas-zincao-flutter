@@ -422,7 +422,6 @@ class RetiradaViewModel extends ChangeNotifier {
 
     syncPendente = true;
     status = RetiradaStatus.success;
-    notifyListeners();
   }
 
   /// Aplica a retirada localmente sem chamadas de rede.

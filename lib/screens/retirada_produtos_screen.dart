@@ -24,6 +24,7 @@ class RetiradaProdutosScreen extends StatefulWidget {
 class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
   final _viewModel = RetiradaViewModel();
   final Map<int, TextEditingController> _controllers = {};
+  bool _successDialogShown = false;
 
   @override
   void initState() {
@@ -66,6 +67,8 @@ class _RetiradaProdutosScreenState extends State<RetiradaProdutosScreen> {
         fallbackMessage: 'Não foi possível registrar a retirada.',
       );
     } else if (_viewModel.status == RetiradaStatus.success) {
+      if (_successDialogShown) return;
+      _successDialogShown = true;
       _showSuccessDialog();
     } else {
       setState(() {});

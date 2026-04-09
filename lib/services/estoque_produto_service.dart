@@ -264,14 +264,31 @@ class EstoqueProdutoService {
     final key = idempotencyKey ?? Uuid().v4();
     
     try {
-      final rpcResult = await supabase.rpc(
-        RpcFunctions.baixarEstoqueProduto,
-        params: {
-          'p_id_produto': idProduto,
-          'p_quantidade_solicitada': quantidadeSolicitada,
-          'p_idempotency_key': key,
-        },
-      );
+      dynamic rpcResult;
+      try {
+        rpcResult = await supabase.rpc(
+          RpcFunctions.baixarEstoqueProduto,
+          params: {
+            'p_id_produto': idProduto,
+            'p_quantidade_solicitada': quantidadeSolicitada,
+            'p_idempotency_key': key,
+          },
+        );
+      } on Exception catch (e) {
+        // Compatibilidade: alguns ambientes ainda possuem a assinatura antiga da RPC.
+        if (!_isRpcWithoutIdempotencyKey(e)) rethrow;
+
+        debugPrint(
+          'EstoqueProduto.baixarEstoque: RPC sem suporte a p_idempotency_key; usando assinatura legada.'
+        );
+        rpcResult = await supabase.rpc(
+          RpcFunctions.baixarEstoqueProduto,
+          params: {
+            'p_id_produto': idProduto,
+            'p_quantidade_solicitada': quantidadeSolicitada,
+          },
+        );
+      }
 
       return _parseQuantidadeRetiradaRpc(rpcResult);
     } on Exception catch (e) {
@@ -280,10 +297,25 @@ class EstoqueProdutoService {
     }
   }
 
+  bool _isRpcWithoutIdempotencyKey(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('p_idempotency_key') ||
+        (msg.contains('baixar_estoque_produto') &&
+            (msg.contains('does not exist') || msg.contains('nao existe') || msg.contains('não existe')));
+  }
+
   /// P10: Parse com schema validation en vez de recursão frágil
   double _parseQuantidadeRetiradaRpc(dynamic rpcResult) {
     if (rpcResult == null) {
       throw FormatException('RPC retornou null - esperado quantidade numérica');
+    }
+
+    // Alguns ambientes retornam lista (ex.: setof/recordset). Usa o primeiro item.
+    if (rpcResult is List) {
+      if (rpcResult.isEmpty) {
+        throw FormatException('RPC retornou lista vazia - esperado quantidade numérica');
+      }
+      return _parseQuantidadeRetiradaRpc(rpcResult.first);
     }
 
     // Caso simples: retornou um número diretamente
@@ -320,7 +352,7 @@ class EstoqueProdutoService {
     }
 
     throw FormatException(
-      'RPC retornou tipo inesperado: ${rpcResult.runtimeType}. Esperado: num, String ou Map'
+      'RPC retornou tipo inesperado: ${rpcResult.runtimeType}. Esperado: num, String, Map ou List'
     );
   }
 

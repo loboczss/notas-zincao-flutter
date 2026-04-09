@@ -123,17 +123,14 @@ class NotaRetiradaService {
 
   /// Busca uma nota específica pelo ID.
   Future<NotaRetirada?> getById(String id) async {
-    try {
-      final response = await supabase
-          .from(DbTables.notasRetirada)
-          .select()
-          .eq(ColsNotasRetirada.id, id)
-          .single();
-      
-      return NotaRetirada.fromMap(response);
-    } catch (e) {
-      return null;
-    }
+    final response = await supabase
+        .from(DbTables.notasRetirada)
+        .select()
+        .eq(ColsNotasRetirada.id, id)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return NotaRetirada.fromMap(response);
   }
 
   /// Inserta uma nova nota.
